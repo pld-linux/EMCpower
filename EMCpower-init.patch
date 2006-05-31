@@ -1,15 +1,94 @@
---- MCpower-4.5.1/PowerPath.rhel	2006-04-07 08:05:22.000000000 +0300
-+++ ../powerpath	2006-05-31 16:20:33.000000000 +0300
-@@ -85,8 +85,6 @@
- . gettext.sh
+--- EMCpower-4.5.1/PowerPath.rhel	2006-05-31 16:22:19.000000000 +0300
+--- EMCpower-4.5.1/PowerPath.rhel	2006-05-31 16:22:19.000000000 +0300
+@@ -15,6 +15,9 @@
+ 
+ # @(#) $Header$
+ 
++# Source function library.
++. /etc/rc.d/init.d/functions
++
+ 
+ # Functions to preserve exceptional command status return values
+ 
+@@ -39,10 +42,10 @@
+         then
+         case "$rc_script_stat" in
+             0)
+-              echo "`eval_gettext \" done\"`"
++			  nls " done"
+               ;;
+             *)
+-              echo "`eval_gettext \" failed\"`"
++			  nls " failed"
+               ;;
+         esac
+     fi
+@@ -70,28 +73,11 @@
+ PATH=/usr/bin/:/bin:/sbin:/usr/sbin
+ 
+ # the following are the internationalization specific lines
+-
+-if [ ! -x /usr/bin/gettext ]; then
+-gettext()
+-{
+- echo $*
+-}
+-eval_gettext()
+-{
+- eval "echo $*"
+-}
+-
+-else
+-. gettext.sh
  TEXTDOMAIN=PowerPath
  export TEXTDOMAIN
 -TEXTDOMAINDIR=$RPM_INSTALL_PREFIX/etc/opt/emcpower/EMCpower.LINUX-4.5.1/i18n/catalog
 -export TEXTDOMAINDIR
  export RPM_INSTALL_PREFIX
- fi
+-fi
  # end of internationalization
-@@ -164,7 +162,7 @@
+ 
+-
+ pp_stop_lvm()
+ {
+     if test -x /sbin/vgchange -a -x /sbin/vgscan ; then
+@@ -104,19 +90,19 @@
+                         err_stop=`/sbin/vgchange -a n $i  2>&1 | grep "open logical volume"`
+                         if [ "$err_stop" != "" ]; then
+                                 if [ "$open_vol" = "" ]; then
+-                                        echo "`eval_gettext \"Following LVM volume groups are in use:\"`"
++										nls "Following LVM volume groups are in use:"
+                                         open_vol=$err_stop
+                                 fi
+ 			var1=$i
+ 			var2=`echo $pv`
+-                        echo "`eval_gettext \"      Volume Group: \\$var1 (\\$var2)\"`"
++                        echo "`nls "      Volume Group: \\$var1 (\\$var2)"`"
+                         fi
+                 fi
+         done
+     fi
+         if [ "$open_vol" != "" ]; then
+-            echo "`eval_gettext \"These open logical volume devices use LUNs from Powerpath managed devices,\"`"
+-            echo "`eval_gettext \"Please re-issue the command after closing these volumes.\"`"
++			nls "These open logical volume devices use LUNs from Powerpath managed devices,"
++			nls "Please re-issue the command after closing these volumes."
+ 	return 1
+         fi
+  return 0
+@@ -152,9 +138,9 @@
+     rc_check
+ 
+     if rc_status ; then
+-        echo -e "`eval_gettext \"\nSuccessfully started 32-bit emulation library\"`"
++	nls "\nSuccessfully started 32-bit emulation library"
+     else
+-        echo -e "`eval_gettext \"\nError in starting 32-bit emulation library\"`"
++	nls "\nError in starting 32-bit emulation library"
+     fi
+ }
+ 
+@@ -164,7 +150,7 @@
  {
      if [ -f /etc/emcp_devicesDB.dat ]; then 
          if [ -f /etc/emcp_devicesDB.idx ]; then
@@ -18,7 +97,7 @@
              rc_check
          fi
      fi
-@@ -197,9 +195,9 @@
+@@ -197,9 +183,9 @@
  
      /sbin/powermt load		> /dev/null 2>&1
      rc_check
@@ -30,7 +109,36 @@
      /sbin/powermt save		> /dev/null 2>&1
      rc_check
      /sbin/powermt register	> /dev/null 2>&1
-@@ -261,7 +259,7 @@
+@@ -213,15 +199,15 @@
+ {
+     ps -C naviagent >> /dev/null
+     if [ $? -eq 0 ]; then
+-        echo "`eval_gettext \"Navisphere agent is running.\"`"
+-        echo  "`eval_gettext \"Please stop the agent and then re-issue \\$script_name stop.\"`"
++	nls "Navisphere agent is running."
++        eval echo "$(nls \"Please stop the agent and then re-issue \\$script_name stop.\")"
+         return 1
+     fi
+ 
+     ps -C powermt >> /dev/null
+     if [ $? -eq 0 ]; then
+-        echo "`eval_gettext \"The powermt command is running.\"`"
+-        echo "`eval_gettext \"Please stop powermt and then re-issue \\$script_name stop.\"`"
++	nls "The powermt command is running."
++        echo "`eval nls \"Please stop powermt and then re-issue \\$script_name stop.\"`"
+         return 1
+     fi
+     if pp_stop_lvm ; then
+@@ -239,7 +225,7 @@
+         /sbin/modprobe -q -s --first-time $d
+         rc_check
+         if [ $? -ne 0 ] ; then
+-            echo "`eval_gettext \"PowerPath could not load module \\$d\"`"
++            echo "`eval nls \"PowerPath could not load module \\$d\"`"
+             break
+         fi
+     done
+@@ -261,12 +247,12 @@
  
  rc_reset
  script_name=PowerPath
@@ -39,7 +147,52 @@
  
  case "$1" in
      start)
-@@ -336,7 +334,7 @@
+ 
+-        echo -n "`eval_gettext \"Starting \\$script_name: \"`"
++        eval echo -n "$(nls "Starting \$script_name: ")"
+ 
+         ###
+         # Start the 32-bit emulation for ia64
+@@ -295,12 +281,12 @@
+ 	    # These values can be different when PP loads from RD.
+ 	    #
+ 	    rm -f /dev/emcpower
+-	    mmaj=`cat /sys/class/misc/emcpower/dev | gawk -F : '{print $1}'`
+-	    mmin=`cat /sys/class/misc/emcpower/dev | gawk -F : '{print $2}'`
++	    mmaj=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $1}'`
++	    mmin=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $2}'`
+ 	    mknod /dev/emcpower c $mmaj $mmin > /dev/null
+ 
+ 	    if [ $? -ne 0 ]; then
+-	        echo "`eval_gettext \"failed to create emcpower device\"`"
++			nls "failed to create emcpower device"
+             fi
+ 
+             if rc_status ; then
+@@ -311,7 +297,7 @@
+                     unload_drivers
+                 fi
+             else
+-                echo "`eval_gettext \"PowerPath: unable to load PowerPath modules.\"`"
++				nls "PowerPath: unable to load PowerPath modules."
+                 unload_drivers
+             fi
+         fi
+@@ -319,11 +305,11 @@
+         ;;
+ 
+     stop)
+-        echo -n "`eval_gettext \"Stopping \\$script_name: \"`"
++        eval echo -n "$(nls "Stopping \$script_name: ")"
+         lsmod | grep -w '^emcp' > /dev/null
+         if test $? -ne 0 ;
+         then
+-                echo "`eval_gettext \"PowerPath is not running\"`"
++				nls "PowerPath is not running"
+         else
+             #
+             # Tresspass can happen if new devices are added or some devices 
+@@ -336,7 +322,7 @@
              if ok_to_stop; then
                  /sbin/powermt save > /dev/null 2>&1
                  rc_check
@@ -48,12 +201,37 @@
                  rc_check
                  /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
                  devr=$?
-@@ -359,7 +357,7 @@
+@@ -347,19 +333,19 @@
+                     unload_drivers
+                     rc_check
+                     if [ $? -ne 0 ] ; then
+-                        echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
++						nls "PowerPath could not unload PowerPath modules."
+                     fi
+                 else
+                     if [ $cdevs -eq 0 ] ; then
+                         unload_drivers
+                         rc_check
+                         if [ $? -ne 0 ] ; then
+-                            echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
++							nls "PowerPath could not unload PowerPath modules."
+                         fi
                      else
-                         echo "`eval_gettext \"PowerPath devices are open.\"`"
-                         echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
+-                        echo "`eval_gettext \"PowerPath devices are open.\"`"
+-                        echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
 -                        /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
++						nls "PowerPath devices are open."
++						eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
 +                        /usr/sbin/emcpmgr map -p > /dev/null 2>&1
                          /sbin/powermt config 	> /dev/null 2>&1
                          /bin/false
                      fi
+@@ -372,7 +358,7 @@
+         ;;
+     *)
+         var=$0
+- 	echo "`eval_gettext \"Usage: \\$var {start|stop}\"`"
++		eval echo "$(nls "Usage: \$var {start\|stop}")"
+ 	;;
+ esac
+ 
