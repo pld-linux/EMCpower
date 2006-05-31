@@ -1,0 +1,59 @@
+--- MCpower-4.5.1/PowerPath.rhel	2006-04-07 08:05:22.000000000 +0300
++++ ../powerpath	2006-05-31 16:20:33.000000000 +0300
+@@ -85,8 +85,6 @@
+ . gettext.sh
+ TEXTDOMAIN=PowerPath
+ export TEXTDOMAIN
+-TEXTDOMAINDIR=$RPM_INSTALL_PREFIX/etc/opt/emcpower/EMCpower.LINUX-4.5.1/i18n/catalog
+-export TEXTDOMAINDIR
+ export RPM_INSTALL_PREFIX
+ fi
+ # end of internationalization
+@@ -164,7 +162,7 @@
+ {
+     if [ -f /etc/emcp_devicesDB.dat ]; then 
+         if [ -f /etc/emcp_devicesDB.idx ]; then
+-            /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
++            /usr/sbin/emcpmgr map -p > /dev/null 2>&1
+             rc_check
+         fi
+     fi
+@@ -197,9 +195,9 @@
+ 
+     /sbin/powermt load		> /dev/null 2>&1
+     rc_check
+-    /etc/opt/emcpower/emcpmgr map	> /dev/null 2>&1
++    /usr/sbin/emcpmgr map	> /dev/null 2>&1
+     rc_check
+-    /etc/opt/emcpower/powercf -C	> /dev/null 2>&1
++    /usr/sbin/powercf -C	> /dev/null 2>&1
+     /sbin/powermt save		> /dev/null 2>&1
+     rc_check
+     /sbin/powermt register	> /dev/null 2>&1
+@@ -261,7 +259,7 @@
+ 
+ rc_reset
+ script_name=PowerPath
+-ext=/etc/opt/emcpower/EMCpower.LINUX-4.5.1/bin/.drivers_ext
++ext=/etc/emcpower/drivers_ext
+ 
+ case "$1" in
+     start)
+@@ -336,7 +334,7 @@
+             if ok_to_stop; then
+                 /sbin/powermt save > /dev/null 2>&1
+                 rc_check
+-                /etc/opt/emcpower/emcpmgr unmap > /dev/null 2>&1
++                /usr/sbin/emcpmgr unmap > /dev/null 2>&1
+                 rc_check
+                 /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
+                 devr=$?
+@@ -359,7 +357,7 @@
+                     else
+                         echo "`eval_gettext \"PowerPath devices are open.\"`"
+                         echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
+-                        /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
++                        /usr/sbin/emcpmgr map -p > /dev/null 2>&1
+                         /sbin/powermt config 	> /dev/null 2>&1
+                         /bin/false
+                     fi
