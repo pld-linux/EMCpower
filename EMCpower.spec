@@ -1,7 +1,8 @@
 # Conditional build:
 %bcond_without	dist_kernel	# allow non-distribution kernel
 %bcond_without	kernel		# don't build kernel modules
-%bcond_with	smp		# don't build SMP module
+%bcond_without	up	# don't build SMP module
+%bcond_without	smp		# don't build SMP module
 %bcond_without	userspace	# don't build userspace programs
 %bcond_with	verbose		# verbose build (V=1)
 
@@ -9,10 +10,17 @@
 %undefine	with_dist_kernel
 %endif
 
+%ifarch %{x8664}
+%undefine	with_up
+%endif
+
+%define	__kernel_ver	2.6.5-7.252
+%define	__kernel_rpmvr	%{__kernel_ver}
+
 #
 # main package.
 #
-%define		_rel	0.1
+%define		_rel	0.4
 Summary:	EMC PowerPath
 Name:		EMCpower
 Version:	4.5.1
@@ -148,23 +156,32 @@ cat PowerPath.lang >> EMCpower.lang
 
 %if %{with kernel}
 cd bin/driver
-install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}{,smp}/block
+%if %{with up}
+install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block
 install emcplib-%{?with_dist_kernel:up}%{!?with_dist_kernel:nondist}.ko \
-	$RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/block/emcplib.ko
+	$RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block/emcplib.ko
 
 brand=sles; type=default
- for a in emcp emcphr emcpioc emcpmp emcpmpaa emcpmpap emcpmpc; do
-	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/block/$a.ko
-done 
+%ifarch %{x8664}
+type=${type}_x8664
+%endif
+for a in emcplib emcp emcphr emcpioc emcpmp emcpmpaa emcpmpap emcpmpc; do
+	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block/$a.ko
+done
+%endif
 
 %if %{with smp} && %{with dist_kernel}
+install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
 install emcplib-smp.ko \
-	$RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}smp/block/emcplib.ko
+	$RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/emcplib.ko
 
 brand=sles; type=smp
- for a in emcp emcphr emcpioc emcpmp emcpmpaa emcpmpap emcpmpc; do
-	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/block/$a.ko
-done 
+%ifarch %{x8664}
+type=${type}_x8664
+%endif
+ for a in emcplib emcp emcphr emcpioc emcpmp emcpmpaa emcpmpap emcpmpc; do
+	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/$a.ko
+done
 %endif
 %endif
 
@@ -184,14 +201,16 @@ rm -rf $RPM_BUILD_ROOT
 %depmod %{_kernel_ver}smp
 
 %if %{with kernel}
+%if %{with up}
 %files -n kernel-block-emc
 %defattr(644,root,root,755)
-/lib/modules/%{_kernel_ver}/block/*.ko*
+/lib/modules/%{_kernel_ver}/kernel/drivers/block/*.ko*
+%endif
 
 %if %{with smp} && %{with dist_kernel}
 %files -n kernel-smp-block-emc
 %defattr(644,root,root,755)
-/lib/modules/%{_kernel_ver}smp/block/*.ko*
+/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/*.ko*
 %endif
 %endif
 
