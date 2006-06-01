@@ -20,7 +20,7 @@
 #
 # main package.
 #
-%define		_rel	0.7
+%define		_rel	0.8
 Summary:	EMC PowerPath
 Name:		EMCpower
 Version:	4.5.1
@@ -201,10 +201,10 @@ rm -rf $RPM_BUILD_ROOT
 %depmod %{_kernel_ver}
 
 %post	-n kernel-smp-block-emc
-%depmod %{_kernel_ver}smp
+%depmod %{_kernel_ver}-smp
 
 %postun	-n kernel-smp-block-emc
-%depmod %{_kernel_ver}smp
+%depmod %{_kernel_ver}-smp
 
 %if %{with kernel}
 %if %{with up}
