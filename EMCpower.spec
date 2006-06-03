@@ -1,7 +1,8 @@
+#
 # Conditional build:
 %bcond_without	dist_kernel	# allow non-distribution kernel
 %bcond_without	kernel		# don't build kernel modules
-%bcond_without	up	# don't build SMP module
+%bcond_without	up		# don't build UP module
 %bcond_without	smp		# don't build SMP module
 %bcond_without	userspace	# don't build userspace programs
 %bcond_with	verbose		# verbose build (V=1)
@@ -21,7 +22,8 @@
 # main package.
 #
 %define		_rel	0.8
-Summary:	EMC PowerPath
+Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
+Summary(pl):	EMC PowerPath - multi-path z fail-over i dzieleniem obci±¿enia po SCSI
 Name:		EMCpower
 Version:	4.5.1
 Release:	%{_rel}
@@ -31,6 +33,8 @@ Source0:	%{name}.LINUX-%{version}-022.sles.i386.rpm
 # NoSource0-md5:	ed93c4daa2169b992c888ef5c27a6334
 Source1:	%{name}.LINUX-%{version}-022.sles.x86_64.rpm
 # NoSource1-md5:	b9e452479cff19640dee5431ff96f56c
+NoSource:	0
+NoSource:	1
 Patch0:		%{name}-init.patch
 %if %{with kernel}
 %{?with_dist_kernel:BuildRequires:	kernel-module-build >= 3:2.6.14}
@@ -43,6 +47,10 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 %description
 Multi-path software providing fail-over and load-sharing for SCSI
 disks.
+
+%description -l pl
+Oprogramowanie do multi-path z opcj± fail-over i dzieleniem obci±¿enia
+miêdzy dyski SCSI.
 
 # kernel subpackages.
 
@@ -235,18 +243,17 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_sbindir}/powercf
 %attr(755,root,root) %{_sbindir}/powermt
 %attr(755,root,root) %{_sbindir}/powerprotect
-%{_libdir}/libemcp.so
-%{_libdir}/libemcp_core.so
-%{_libdir}/libemcp_lam.so
-%{_libdir}/libemcp_lic_rtl.so
-%{_libdir}/libemcp_mp_rtl.so
-%{_libdir}/libemcpmp.so
-%{_libdir}/libpn.so
+%attr(755,root,root) %{_libdir}/libemcp.so
+%attr(755,root,root) %{_libdir}/libemcp_core.so
+%attr(755,root,root) %{_libdir}/libemcp_lam.so
+%attr(755,root,root) %{_libdir}/libemcp_lic_rtl.so
+%attr(755,root,root) %{_libdir}/libemcp_mp_rtl.so
+%attr(755,root,root) %{_libdir}/libemcpmp.so
+%attr(755,root,root) %{_libdir}/libpn.so
 %{_mandir}/man1/emcpadm.1*
 %{_mandir}/man1/emcpreg.1*
 %{_mandir}/man1/emcpupgrade.1*
 %{_mandir}/man1/powermig.1*
 %{_mandir}/man1/powermt.1*
 %{_mandir}/man1/powerprotect.1*
-
 %endif
