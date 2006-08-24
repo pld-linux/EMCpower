@@ -1,7 +1,7 @@
 #
 # Conditional build:
 %bcond_without	dist_kernel	# allow non-distribution kernel
-%bcond_without	kernel		# don't build kernel modules
+%bcond_with	kernel		# don't build kernel modules
 %bcond_without	up		# don't build UP module
 %bcond_without	smp		# don't build SMP module
 %bcond_without	userspace	# don't build userspace programs
@@ -21,7 +21,7 @@
 #
 # main package.
 #
-%define		_rel	0.8
+%define		_rel	0.10
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl):	EMC PowerPath - multi-path z fail-over i dzieleniem obci±¿enia po SCSI
 Name:		EMCpower
@@ -42,7 +42,8 @@ BuildRequires:	rpmbuild(macros) >= 1.286
 %endif
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
-%define		_sysconfdir	/etc/emcpower
+%define		_sysconfdir	/etc/emc
+%define		_sbindir	/sbin
 
 %description
 Multi-path software providing fail-over and load-sharing for SCSI
