@@ -93,7 +93,7 @@
      if [ -f /etc/emcp_devicesDB.dat ]; then 
          if [ -f /etc/emcp_devicesDB.idx ]; then
 -            /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
-+            /usr/sbin/emcpmgr map -p > /dev/null 2>&1
++            /sbin/emcpmgr map -p > /dev/null 2>&1
              rc_check
          fi
      fi
@@ -102,10 +102,10 @@
      /sbin/powermt load		> /dev/null 2>&1
      rc_check
 -    /etc/opt/emcpower/emcpmgr map	> /dev/null 2>&1
-+    /usr/sbin/emcpmgr map	> /dev/null 2>&1
++    /sbin/emcpmgr map	> /dev/null 2>&1
      rc_check
 -    /etc/opt/emcpower/powercf -C	> /dev/null 2>&1
-+    /usr/sbin/powercf -C	> /dev/null 2>&1
++    /sbin/powercf -C	> /dev/null 2>&1
      /sbin/powermt save		> /dev/null 2>&1
      rc_check
      /sbin/powermt register	> /dev/null 2>&1
@@ -197,7 +197,7 @@
                  /sbin/powermt save > /dev/null 2>&1
                  rc_check
 -                /etc/opt/emcpower/emcpmgr unmap > /dev/null 2>&1
-+                /usr/sbin/emcpmgr unmap > /dev/null 2>&1
++                /sbin/emcpmgr unmap > /dev/null 2>&1
                  rc_check
                  /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
                  devr=$?
@@ -222,7 +222,7 @@
 -                        /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
 +						nls "PowerPath devices are open."
 +						eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
-+                        /usr/sbin/emcpmgr map -p > /dev/null 2>&1
++                        /sbin/emcpmgr map -p > /dev/null 2>&1
                          /sbin/powermt config 	> /dev/null 2>&1
                          /bin/false
                      fi
