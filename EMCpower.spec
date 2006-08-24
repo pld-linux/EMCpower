@@ -1,7 +1,7 @@
 #
 # Conditional build:
 %bcond_without	dist_kernel	# allow non-distribution kernel
-%bcond_with	kernel		# don't build kernel modules
+%bcond_with	kernel		# build kernel modules
 %bcond_without	up		# don't build UP module
 %bcond_without	smp		# don't build SMP module
 %bcond_without	userspace	# don't build userspace programs
