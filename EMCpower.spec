@@ -209,6 +209,12 @@ install -d $RPM_BUILD_ROOT/opt/emcpower
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%verifyscript
+echo "These PowerPath modules are installed"
+/sbin/lsmod | head -n 1
+/sbin/lsmod | grep emc
+echo "DONE"
+
 %pre
 # Check - Only install on a 2.6 kernel
 expr `uname -r` : '2\.6' > /dev/null
