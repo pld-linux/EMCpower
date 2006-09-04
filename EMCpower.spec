@@ -209,6 +209,29 @@ install -d $RPM_BUILD_ROOT/opt/emcpower
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%pre
+# Check - Only install on a 2.6 kernel
+expr `uname -r` : '2\.6' > /dev/null
+if [ $? -ne 0 ]; then
+	echo "This PowerPath package does not support this kernel."
+	exit 1
+fi
+
+# Check - Make sure no devices are in use.
+if [ "`/sbin/lsmod | grep -w emcp`" != "" ]; then
+	/sbin/powermt save > /dev/null 2>&1
+	/sbin/powermt remove dev=all > /dev/null 2>&1
+	if [ "`powermt display dev=all 2>&1 | grep "not found"`" = "" ]; then
+		echo "Unable to remove devices from the PowerPath configuration."
+		echo "Please make sure no PowerPath devices are in use and retry."
+		/sbin/powermt config > /dev/null 2>&1
+		/sbin/powermt load > /dev/null 2>&1
+		exit 1
+	fi
+	/sbin/powermt config > /dev/null 2>&1
+	/sbin/powermt load > /dev/null 2>&1
+fi
+
 %post	-n kernel-block-emc
 %depmod %{_kernel_ver}
 
