@@ -21,7 +21,7 @@
 #
 # main package.
 #
-%define		_rel	0.12
+%define		_rel	0.13
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl):	EMC PowerPath - multi-path z fail-over i dzieleniem obci±¿enia po SCSI
 Name:		EMCpower
@@ -44,6 +44,8 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_sysconfdir	/etc/emc
 %define		_sbindir	/sbin
+# binaries and libraries are x86
+%define		_libdir		/usr/lib
 
 %description
 Multi-path software providing fail-over and load-sharing for SCSI
@@ -167,6 +169,12 @@ cp -a bin/.drivers_ext $RPM_BUILD_ROOT%{_sysconfdir}/drivers_ext
 %find_lang EMCpower
 %find_lang PowerPath
 cat PowerPath.lang >> EMCpower.lang
+
+# hardcoded paths. oh sigh
+install -d $RPM_BUILD_ROOT/etc/opt/emcpower
+ln -s %{_sbindir}/emcpmgr $RPM_BUILD_ROOT/etc/opt/emcpower
+ln -s %{_sbindir}/powercf $RPM_BUILD_ROOT/etc/opt/emcpower
+install -d $RPM_BUILD_ROOT/opt/emcpower
 %endif
 
 %if %{with kernel}
@@ -199,12 +207,6 @@ type=${type}_x8664
 done
 %endif
 %endif
-
-# hardcoded paths. oh sigh
-install -d $RPM_BUILD_ROOT/etc/opt/emcpower
-ln -s %{_sbindir}/emcpmgr $RPM_BUILD_ROOT/etc/opt/emcpower
-ln -s %{_sbindir}/powercf $RPM_BUILD_ROOT/etc/opt/emcpower
-install -d $RPM_BUILD_ROOT/opt/emcpower
 
 %clean
 rm -rf $RPM_BUILD_ROOT
