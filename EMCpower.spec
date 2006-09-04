@@ -21,7 +21,7 @@
 #
 # main package.
 #
-%define		_rel	0.13
+%define		_rel	0.17
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl):	EMC PowerPath - multi-path z fail-over i dzieleniem obci±¿enia po SCSI
 Name:		EMCpower
@@ -171,10 +171,15 @@ cp -a bin/.drivers_ext $RPM_BUILD_ROOT%{_sysconfdir}/drivers_ext
 cat PowerPath.lang >> EMCpower.lang
 
 # hardcoded paths. oh sigh
-install -d $RPM_BUILD_ROOT/etc/opt/emcpower
+install -d $RPM_BUILD_ROOT/etc/opt/emcpower/.tmp
 ln -s %{_sbindir}/emcpmgr $RPM_BUILD_ROOT/etc/opt/emcpower
 ln -s %{_sbindir}/powercf $RPM_BUILD_ROOT/etc/opt/emcpower
+touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_global_lock
+touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_lock
+
 install -d $RPM_BUILD_ROOT/opt/emcpower
+install -d $RPM_BUILD_ROOT/etc/emcpower
+touch $RPM_BUILD_ROOT%{_sysconfdir}/mpaa.{excluded,lams}
 %endif
 
 %if %{with kernel}
@@ -271,6 +276,8 @@ fi
 %defattr(644,root,root,755)
 %dir %{_sysconfdir}
 %{_sysconfdir}/drivers_ext
+%ghost %{_sysconfdir}/mpaa.excluded
+%ghost %{_sysconfdir}/mpaa.lams
 /etc/modprobe.d/EMCpower.conf
 %attr(754,root,root) /etc/rc.d/init.d/powerpath
 %attr(755,root,root) %{_sbindir}/emcpadm
@@ -297,5 +304,8 @@ fi
 
 # hardcoded paths. oh sigh
 /etc/opt/emcpower
+%ghost /etc/opt/emcpower/.__emcp_db_global_lock
+%ghost /etc/opt/emcpower/.__emcp_db_lock
 /opt/emcpower
+%dir /etc/emcpower
 %endif
