@@ -21,7 +21,7 @@
 #
 # main package.
 #
-%define		_rel	0.10
+%define		_rel	0.12
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl):	EMC PowerPath - multi-path z fail-over i dzieleniem obci±¿enia po SCSI
 Name:		EMCpower
@@ -200,6 +200,12 @@ done
 %endif
 %endif
 
+# hardcoded paths. oh sigh
+install -d $RPM_BUILD_ROOT/etc/opt/emcpower
+ln -s %{_sbindir}/emcpmgr $RPM_BUILD_ROOT/etc/opt/emcpower
+ln -s %{_sbindir}/powercf $RPM_BUILD_ROOT/etc/opt/emcpower
+install -d $RPM_BUILD_ROOT/opt/emcpower
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -257,4 +263,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/powermig.1*
 %{_mandir}/man1/powermt.1*
 %{_mandir}/man1/powerprotect.1*
+
+# hardcoded paths. oh sigh
+/etc/opt/emcpower
+/opt/emcpower
 %endif
