@@ -143,7 +143,7 @@
  rc_reset
  script_name=PowerPath
 -ext=/etc/opt/emcpower/EMCpower.LINUX-4.5.1/bin/.drivers_ext
-+ext=/etc/emcpower/drivers_ext
++ext=/etc/emc/drivers_ext
  
  case "$1" in
      start)
