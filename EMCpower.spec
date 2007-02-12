@@ -23,7 +23,7 @@
 #
 %define		_rel	0.17
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
-Summary(pl):	EMC PowerPath - multi-path z fail-over i dzieleniem obci±¿enia po SCSI
+Summary(pl.UTF-8):   EMC PowerPath - multi-path z fail-over i dzieleniem obciÄ…Å¼enia po SCSI
 Name:		EMCpower
 Version:	4.5.1
 Release:	%{_rel}
@@ -51,15 +51,15 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 Multi-path software providing fail-over and load-sharing for SCSI
 disks.
 
-%description -l pl
-Oprogramowanie do multi-path z opcj± fail-over i dzieleniem obci±¿enia
-miêdzy dyski SCSI.
+%description -l pl.UTF-8
+Oprogramowanie do multi-path z opcjÄ… fail-over i dzieleniem obciÄ…Å¼enia
+miÄ™dzy dyski SCSI.
 
 # kernel subpackages.
 
 %package -n kernel-block-emc
 Summary:	Linux driver for emc
-Summary(pl):	Sterownik dla Linuksa do emc
+Summary(pl.UTF-8):   Sterownik dla Linuksa do emc
 Release:	%{_rel}@%{_kernel_ver_str}
 Group:		Base/Kernel
 Requires(post,postun):	/sbin/depmod
@@ -73,14 +73,14 @@ This is driver for emc for Linux.
 
 This package contains Linux module.
 
-%description -n kernel-block-emc -l pl
+%description -n kernel-block-emc -l pl.UTF-8
 Sterownik dla Linuksa do emc.
 
-Ten pakiet zawiera modu³ j±dra Linuksa.
+Ten pakiet zawiera moduÅ‚ jÄ…dra Linuksa.
 
 %package -n kernel-smp-block-emc
 Summary:	Linux SMP driver for emc
-Summary(pl):	Sterownik dla Linuksa SMP do emc
+Summary(pl.UTF-8):   Sterownik dla Linuksa SMP do emc
 Release:	%{_rel}@%{_kernel_ver_str}
 Group:		Base/Kernel
 Requires(post,postun):	/sbin/depmod
@@ -94,10 +94,10 @@ This is driver for emc for Linux.
 
 This package contains Linux SMP module.
 
-%description -n kernel-smp-block-emc -l pl
+%description -n kernel-smp-block-emc -l pl.UTF-8
 Sterownik dla Linuksa do emc.
 
-Ten pakiet zawiera modu³ j±dra Linuksa SMP.
+Ten pakiet zawiera moduÅ‚ jÄ…dra Linuksa SMP.
 
 %prep
 %setup -qcT
