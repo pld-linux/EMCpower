@@ -23,7 +23,7 @@
 #
 %define		_rel	0.17
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
-Summary(pl.UTF-8):   EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
+Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
 Version:	4.5.1
 Release:	%{_rel}
@@ -59,7 +59,7 @@ między dyski SCSI.
 
 %package -n kernel-block-emc
 Summary:	Linux driver for emc
-Summary(pl.UTF-8):   Sterownik dla Linuksa do emc
+Summary(pl.UTF-8):	Sterownik dla Linuksa do emc
 Release:	%{_rel}@%{_kernel_ver_str}
 Group:		Base/Kernel
 Requires(post,postun):	/sbin/depmod
@@ -80,7 +80,7 @@ Ten pakiet zawiera moduł jądra Linuksa.
 
 %package -n kernel-smp-block-emc
 Summary:	Linux SMP driver for emc
-Summary(pl.UTF-8):   Sterownik dla Linuksa SMP do emc
+Summary(pl.UTF-8):	Sterownik dla Linuksa SMP do emc
 Release:	%{_rel}@%{_kernel_ver_str}
 Group:		Base/Kernel
 Requires(post,postun):	/sbin/depmod
