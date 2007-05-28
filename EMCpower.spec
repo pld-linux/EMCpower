@@ -15,7 +15,7 @@ NoSource:	1
 Patch0:		%{name}-init.patch
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
-%define		_sysconfdir	/etc/emc
+%define		_sysconfdir	/something/bogus
 %define		_sbindir	/sbin
 # binaries and libraries are x86
 %define		_libdir		/usr/lib
@@ -42,7 +42,7 @@ mv etc/opt/emcpower/EMCpower.LINUX-%{version}/* .
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},%{_libdir},%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
+install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir},%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
 
 cp -a man/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 install modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{name}.conf
@@ -50,7 +50,7 @@ cp -a i18n/catalog/* $RPM_BUILD_ROOT%{_datadir}/locale
 install PowerPath.rhel $RPM_BUILD_ROOT/etc/rc.d/init.d/powerpath
 install bin/lib/* $RPM_BUILD_ROOT%{_libdir}
 install bin/cmds/* $RPM_BUILD_ROOT%{_sbindir}
-cp -a bin/.drivers_ext $RPM_BUILD_ROOT%{_sysconfdir}/drivers_ext
+cp -a bin/.drivers_ext $RPM_BUILD_ROOT/etc/emc/drivers_ext
 
 %find_lang EMCpower
 %find_lang PowerPath
@@ -65,11 +65,12 @@ touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_lock
 
 install -d $RPM_BUILD_ROOT/opt/emcpower
 install -d $RPM_BUILD_ROOT/etc/emcpower
-touch $RPM_BUILD_ROOT%{_sysconfdir}/mpaa.{excluded,lams}
+touch $RPM_BUILD_ROOT/etc/emc/mpaa.{excluded,lams}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%if 0
 %verifyscript
 echo "These PowerPath modules are installed"
 /sbin/lsmod | head -n 1
@@ -98,13 +99,15 @@ if [ "`/sbin/lsmod | grep -w emcp`" != "" ]; then
 	/sbin/powermt config > /dev/null 2>&1
 	/sbin/powermt load > /dev/null 2>&1
 fi
+%endif
 
 %files -f EMCpower.lang
 %defattr(644,root,root,755)
-%dir %{_sysconfdir}
-%{_sysconfdir}/drivers_ext
-%ghost %{_sysconfdir}/mpaa.excluded
-%ghost %{_sysconfdir}/mpaa.lams
+%dir /etc/emc
+%dir /etc/emc/ppme
+/etc/emc/drivers_ext
+%ghost /etc/emc/mpaa.excluded
+%ghost /etc/emc/mpaa.lams
 /etc/modprobe.d/EMCpower.conf
 %attr(754,root,root) /etc/rc.d/init.d/powerpath
 %attr(755,root,root) %{_sbindir}/emcpadm
