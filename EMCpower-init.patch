@@ -1,5 +1,5 @@
---- EMCpower-5.0.0/PowerPath~	2006-09-04 16:10:03.000000000 +0300
-+++ EMCpower-5.0.0/PowerPath	2006-09-04 16:10:03.000000000 +0300
+--- EMCpower-5.0.0/PowerPath.rhel	2007-02-07 10:06:21.000000000 +0200
++++ EMCpower-5.0.0/PowerPath	2007-05-29 15:39:50.764904063 +0300
 @@ -15,6 +15,9 @@
  
  # @(#) $Header$
@@ -23,7 +23,9 @@
                ;;
          esac
      fi
-@@ -69,27 +72,9 @@
+@@ -71,29 +74,11 @@
+ PPBASE=/etc/opt/emcpower/EMCpower.LINUX-5.0.0
+ 
  # the following are the internationalization specific lines
 -
 -if [ ! -x /usr/bin/gettext ]; then
@@ -108,7 +110,8 @@
      /sbin/powermt save		> /dev/null 2>&1
      rc_check
      /sbin/powermt register	> /dev/null 2>&1
-@@ -225,13 +210,13 @@
+@@ -224,15 +209,15 @@
+ {
      ps -C naviagent >> /dev/null
      if [ $? -eq 0 ]; then
 -        echo "`eval_gettext \"Navisphere agent is running.\"`"
@@ -126,14 +129,66 @@
 +        echo "`eval nls \"Please stop powermt and then re-issue \\$script_name stop.\"`"
          return 1
      fi
-@@ -261,5 +246,5 @@
+ 
+@@ -240,8 +225,8 @@
+     if [ $? -eq 0 ]; then
+         echo "$mig_info" | grep 'No migrations found' > /dev/null
+         if test $? -ne 0 ; then 
+-            echo "`eval_gettext \"PowerPath migrations are present.\"`"
+-            echo "`eval_gettext \"Please cleanup the migrations and then re-issue \\$script_name stop.\"`"
++			nls "PowerPath migrations are present."
++			eval echo "$(nls "Please cleanup the migrations and then re-issue \\$script_name stop.\")"
+             return 1
+         fi
+     fi
+@@ -261,7 +246,7 @@
+         /sbin/modprobe -q -s --first-time $d
          rc_check
          if [ $? -ne 0 ] ; then
 -            echo "`eval_gettext \"PowerPath could not load module \\$d\"`"
 +            echo "`eval nls \"PowerPath could not load module \\$d\"`"
              break
          fi
-@@ -289,7 +274,7 @@
+     done
+@@ -318,8 +303,8 @@
+          else
+ 	    sleep 5
+ 	    retry=`expr $retry - 1`
+-            #echo "`eval_gettext \"PowerPath devices are open.\"`"
+-            #echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
++	    #nls "PowerPath devices are open."
++	    #eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
+             #/bin/false
+     	    #uerr=$?
+             #return $uerr
+@@ -334,14 +319,14 @@
+        uerr=$?
+        return $uerr
+     else
+-       echo "`eval_gettext \"PowerPath devices are open.\"`"
+-       echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
++       nls "PowerPath devices are open."
++       eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
+        /bin/false
+        uerr=$?
+        return $uerr
+     fi
+ 
+-    echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
++    nls "PowerPath could not unload PowerPath modules."
+     uerr=1
+     return $uerr
+ }
+@@ -358,7 +343,7 @@
+     mknod /dev/emcpower c $mmaj $mmin > /dev/null
+ 
+     if [ $? -ne 0 ]; then
+-        echo "`eval_gettext \"failed to create emcpower device\"`"
++        nls "failed to create emcpower device"
+     fi
+ 
+ }
+@@ -371,7 +356,7 @@
  case "$1" in
      start)
  
@@ -174,12 +229,30 @@
                  rc_check
                  /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
                  devr=$?
-@@ -453,3 +438,3 @@
+@@ -451,18 +436,18 @@
+                     unload_drivers
+                     rc_check
                      if [ $? -ne 0 ] ; then
 -                        echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
 +						nls "PowerPath could not unload PowerPath modules."
                      fi
-@@ -477,7 +462,7 @@
+                 else
+                     if [ $cdevs -eq 0 -o $zerolen -eq 0 ] ; then
+                         unload_drivers
+                         rc_check
+                         if [ $? -ne 0 ] ; then
+-                            echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
++                            nls "PowerPath could not unload PowerPath modules."
+                         fi
+                     else
+-                        echo "`eval_gettext \"PowerPath devices are open.\"`"
+-                        echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
++                        nls "PowerPath devices are open."
++                        eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
+                         /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
+                         /sbin/powermt config 	> /dev/null 2>&1
+ 			/sbin/powermt load	> /dev/null 2>&1
+@@ -477,8 +462,9 @@
          ;;
      *)
          var=$0
@@ -188,3 +261,5 @@
  	;;
  esac
  
+ rc_exit
++# vim:ts=4:sw=4:et
