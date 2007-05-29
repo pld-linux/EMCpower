@@ -21,7 +21,7 @@
 %define	releq_kernel_smp	kernel-smp = 0:%{__kernel_ver}
 %define	releq_kernel_up		kernel-up = 0:%{__kernel_ver}
 
-%define		_rel	0.10
+%define		_rel	0.12
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
@@ -114,7 +114,6 @@ rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir},%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
 
 cp -a man/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
-install modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{name}.conf
 cp -a i18n/catalog/* $RPM_BUILD_ROOT%{_datadir}/locale
 install PowerPath $RPM_BUILD_ROOT/etc/rc.d/init.d/PowerPath
 install bin/lib/* $RPM_BUILD_ROOT%{_libdir}
@@ -138,27 +137,28 @@ touch $RPM_BUILD_ROOT/etc/emc/mpaa.{excluded,lams}
 %endif
 
 %if %{with kernel}
-cd bin/driver
 %if %{with up}
 install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block
+install -D modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{_kernel_ver}/%{name}.conf
 
 brand=sles10; type=default
 %ifarch %{x8664}
 type=${type}_x8664
 %endif
 for a in emcp emcpdm emcpgpx emcpioc emcplib emcpmpx; do
-	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block/$a.ko
+	install bin/driver/${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block/$a.ko
 done
 %endif
 
 %if %{with smp} && %{with dist_kernel}
 install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
+install -D modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{_kernel_ver}-smp/%{name}.conf
 brand=sles10; type=smp
 %ifarch %{x8664}
 type=${type}_x8664
 %endif
 for a in emcp emcpdm emcpgpx emcpioc emcplib emcpmpx; do
-	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/$a.ko
+	install bin/driver/${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/$a.ko
 done
 %endif
 %endif
@@ -190,12 +190,14 @@ fi
 %if %{with up}
 %files -n kernel-block-emc
 %defattr(644,root,root,755)
+/etc/modprobe.d/%{_kernel_ver}/%{name}.conf
 /lib/modules/%{_kernel_ver}/kernel/drivers/block/*.ko*
 %endif
 
 %if %{with smp} && %{with dist_kernel}
 %files -n kernel-smp-block-emc
 %defattr(644,root,root,755)
+/etc/modprobe.d/%{_kernel_ver}-smp/%{name}.conf
 /lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/*.ko*
 %endif
 %endif
@@ -208,7 +210,6 @@ fi
 /etc/emc/.drivers_*
 %ghost /etc/emc/mpaa.excluded
 %ghost /etc/emc/mpaa.lams
-/etc/modprobe.d/EMCpower.conf
 %attr(754,root,root) /etc/rc.d/init.d/PowerPath
 %attr(755,root,root) %{_sbindir}/emcpadm
 %attr(755,root,root) %{_sbindir}/emcpdiscover
