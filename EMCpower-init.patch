@@ -1,5 +1,5 @@
---- EMCpower-4.5.1/PowerPath.rhel	2006-05-31 16:22:19.000000000 +0300
---- EMCpower-4.5.1/PowerPath.rhel	2006-05-31 16:22:19.000000000 +0300
+--- EMCpower-5.0.0/PowerPath~	2007-02-07 10:06:21.000000000 +0200
++++ EMCpower-5.0.0/PowerPath	2006-09-04 16:10:03.000000000 +0300
 @@ -15,6 +15,9 @@
  
  # @(#) $Header$
@@ -23,36 +23,7 @@
                ;;
          esac
      fi
-@@ -70,28 +73,11 @@
- PATH=/usr/bin/:/bin:/sbin:/usr/sbin
- 
- # the following are the internationalization specific lines
--
--if [ ! -x /usr/bin/gettext ]; then
--gettext()
--{
-- echo $*
--}
--eval_gettext()
--{
-- eval "echo $*"
--}
--
--else
--. gettext.sh
- TEXTDOMAIN=PowerPath
- export TEXTDOMAIN
--TEXTDOMAINDIR=$RPM_INSTALL_PREFIX/etc/opt/emcpower/EMCpower.LINUX-4.5.1/i18n/catalog
--export TEXTDOMAINDIR
- export RPM_INSTALL_PREFIX
--fi
- # end of internationalization
- 
--
- pp_stop_lvm()
- {
-     if test -x /sbin/vgchange -a -x /sbin/vgscan ; then
-@@ -104,19 +90,19 @@
+@@ -106,19 +109,19 @@
                          err_stop=`/sbin/vgchange -a n $i  2>&1 | grep "open logical volume"`
                          if [ "$err_stop" != "" ]; then
                                  if [ "$open_vol" = "" ]; then
@@ -76,7 +47,7 @@
  	return 1
          fi
   return 0
-@@ -152,9 +138,9 @@
+@@ -154,9 +157,9 @@
      rc_check
  
      if rc_status ; then
@@ -88,7 +59,7 @@
      fi
  }
  
-@@ -164,7 +150,7 @@
+@@ -166,8 +169,8 @@
  {
      if [ -f /etc/emcp_devicesDB.dat ]; then 
          if [ -f /etc/emcp_devicesDB.idx ]; then
@@ -97,7 +68,8 @@
              rc_check
          fi
      fi
-@@ -197,9 +183,9 @@
+ 
+@@ -206,10 +209,10 @@
  
      /sbin/powermt load		> /dev/null 2>&1
      rc_check
@@ -109,7 +81,8 @@
      /sbin/powermt save		> /dev/null 2>&1
      rc_check
      /sbin/powermt register	> /dev/null 2>&1
-@@ -213,15 +199,15 @@
+     rc_check
+@@ -224,14 +227,14 @@
  {
      ps -C naviagent >> /dev/null
      if [ $? -eq 0 ]; then
@@ -128,8 +101,7 @@
 +        echo "`eval nls \"Please stop powermt and then re-issue \\$script_name stop.\"`"
          return 1
      fi
-     if pp_stop_lvm ; then
-@@ -239,7 +225,7 @@
+@@ -260,6 +263,6 @@
          /sbin/modprobe -q -s --first-time $d
          rc_check
          if [ $? -ne 0 ] ; then
@@ -137,13 +109,7 @@
 +            echo "`eval nls \"PowerPath could not load module \\$d\"`"
              break
          fi
-     done
-@@ -261,12 +247,12 @@
- 
- rc_reset
- script_name=PowerPath
--ext=/etc/opt/emcpower/EMCpower.LINUX-4.5.1/bin/.drivers_ext
-+ext=/etc/emc/drivers_ext
+@@ -288,8 +291,8 @@
  
  case "$1" in
      start)
@@ -153,23 +119,7 @@
  
          ###
          # Start the 32-bit emulation for ia64
-@@ -295,12 +281,12 @@
- 	    # These values can be different when PP loads from RD.
- 	    #
- 	    rm -f /dev/emcpower
--	    mmaj=`cat /sys/class/misc/emcpower/dev | gawk -F : '{print $1}'`
--	    mmin=`cat /sys/class/misc/emcpower/dev | gawk -F : '{print $2}'`
-+	    mmaj=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $1}'`
-+	    mmin=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $2}'`
- 	    mknod /dev/emcpower c $mmaj $mmin > /dev/null
- 
- 	    if [ $? -ne 0 ]; then
--	        echo "`eval_gettext \"failed to create emcpower device\"`"
-+			nls "failed to create emcpower device"
-             fi
- 
-             if rc_status ; then
-@@ -311,7 +297,7 @@
+@@ -411,7 +414,7 @@
                      unload_drivers
                  fi
              else
@@ -178,7 +128,7 @@
                  unload_drivers
              fi
          fi
-@@ -319,11 +305,11 @@
+@@ -419,11 +422,11 @@
          ;;
  
      stop)
@@ -192,7 +142,7 @@
          else
              #
              # Tresspass can happen if new devices are added or some devices 
-@@ -336,7 +322,7 @@
+@@ -436,9 +439,9 @@
              if ok_to_stop; then
                  /sbin/powermt save > /dev/null 2>&1
                  rc_check
@@ -201,32 +151,9 @@
                  rc_check
                  /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
                  devr=$?
-@@ -347,19 +333,19 @@
-                     unload_drivers
-                     rc_check
-                     if [ $? -ne 0 ] ; then
--                        echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
-+						nls "PowerPath could not unload PowerPath modules."
-                     fi
-                 else
-                     if [ $cdevs -eq 0 ] ; then
-                         unload_drivers
-                         rc_check
-                         if [ $? -ne 0 ] ; then
--                            echo "`eval_gettext \"PowerPath could not unload PowerPath modules.\"`"
-+							nls "PowerPath could not unload PowerPath modules."
-                         fi
-                     else
--                        echo "`eval_gettext \"PowerPath devices are open.\"`"
--                        echo "`eval_gettext \"Please close these devices and then re-issue \\$script_name stop.\"`"
--                        /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
-+						nls "PowerPath devices are open."
-+						eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
-+                        /sbin/emcpmgr map -p > /dev/null 2>&1
-                         /sbin/powermt config 	> /dev/null 2>&1
-                         /bin/false
-                     fi
-@@ -372,7 +358,7 @@
+                 cat /var/tmp/.pp_exit | grep "not found" > /dev/null 2>&1
+                 cdevs=$?
+@@ -477,7 +480,7 @@
          ;;
      *)
          var=$0
