@@ -1,4 +1,4 @@
-%define		_rel	0.1
+%define		_rel	0.7
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
@@ -13,12 +13,11 @@ Source1:	%{name}.LINUX-%{version}-157.sles10.x86_64.rpm
 NoSource:	0
 NoSource:	1
 Patch0:		%{name}-init.patch
+Obsoletes:	EMCpower.LINUX
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_sysconfdir	/something/bogus
 %define		_sbindir	/sbin
-# binaries and libraries are x86
-%define		_libdir		/usr/lib
 
 %description
 Multi-path software providing fail-over and load-sharing for SCSI
@@ -38,19 +37,21 @@ rpm2cpio %{SOURCE0} | cpio -dimu
 rpm2cpio %{SOURCE1} | cpio -dimu
 %endif
 mv etc/opt/emcpower/EMCpower.LINUX-%{version}/* .
-#%patch0 -p1
+cp PowerPath{.rhel,}
+%patch0 -p1
+echo 'options emcp managedclass=symm,clariion,hitachi,invista,hpxp,ess,hphsx' >> modprobe.conf.pp
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir},%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
+install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir}/emc,%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
 
 cp -a man/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 install modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{name}.conf
 cp -a i18n/catalog/* $RPM_BUILD_ROOT%{_datadir}/locale
-install PowerPath.rhel $RPM_BUILD_ROOT/etc/rc.d/init.d/powerpath
+install PowerPath $RPM_BUILD_ROOT/etc/rc.d/init.d/PowerPath
 install bin/lib/* $RPM_BUILD_ROOT%{_libdir}
 install bin/cmds/* $RPM_BUILD_ROOT%{_sbindir}
-cp -a bin/.drivers_ext $RPM_BUILD_ROOT/etc/emc/drivers_ext
+cp -a bin/.drivers_* $RPM_BUILD_ROOT/etc/emc
 
 %find_lang EMCpower
 %find_lang PowerPath
@@ -105,11 +106,11 @@ fi
 %defattr(644,root,root,755)
 %dir /etc/emc
 %dir /etc/emc/ppme
-/etc/emc/drivers_ext
+/etc/emc/.drivers_*
 %ghost /etc/emc/mpaa.excluded
 %ghost /etc/emc/mpaa.lams
 /etc/modprobe.d/EMCpower.conf
-%attr(754,root,root) /etc/rc.d/init.d/powerpath
+%attr(754,root,root) /etc/rc.d/init.d/PowerPath
 %attr(755,root,root) %{_sbindir}/emcpadm
 %attr(755,root,root) %{_sbindir}/emcpdiscover
 %attr(755,root,root) %{_sbindir}/emcpmgr
@@ -120,6 +121,7 @@ fi
 %attr(755,root,root) %{_sbindir}/powerprotect
 %attr(755,root,root) %{_sbindir}/powermig
 %attr(755,root,root) %{_sbindir}/pp_inq
+%dir %{_libdir}/emc
 %attr(755,root,root) %{_libdir}/libemcp.so
 %attr(755,root,root) %{_libdir}/libemcp_core.so
 %attr(755,root,root) %{_libdir}/libemcp_lam.so
