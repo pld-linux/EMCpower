@@ -1,6 +1,13 @@
 --- EMCpower-5.0.0/PowerPath.rhel    2007-02-07 10:06:21.000000000 +0200
 +++ EMCpower-5.0.0/PowerPath    2007-05-29 15:39:50.764904063 +0300
-@@ -15,6 +15,9 @@
+@@ -1,5 +1,6 @@
+ #!/bin/sh
+ #
++# chkconfig:	2345 02 -
+ # description: Loads and configures the EMC PowerPath drivers.
+ #
+ # ###################################################################
+@@ -15,6 +16,9 @@
  
  # @(#) $Header$
  
@@ -10,7 +17,7 @@
  
  # Functions to preserve exceptional command status return values
  
-@@ -39,10 +42,10 @@
+@@ -39,10 +43,10 @@
          then
          case "$rc_script_stat" in
              0)
@@ -23,7 +30,7 @@
                ;;
          esac
      fi
-@@ -68,32 +71,13 @@
+@@ -68,32 +72,13 @@
  # @(#) $Header$
  
  PATH=/usr/bin/:/bin:/sbin:/usr/sbin
@@ -56,7 +63,7 @@
  pp_stop_lvm()
  {
      if test -x /sbin/vgchange -a -x /sbin/vgscan ; then
-@@ -106,19 +90,19 @@
+@@ -106,19 +91,19 @@
                          err_stop=`/sbin/vgchange -a n $i  2>&1 | grep "open logical volume"`
                          if [ "$err_stop" != "" ]; then
                                  if [ "$open_vol" = "" ]; then
@@ -80,7 +87,7 @@
  	return 1
          fi
   return 0
-@@ -154,9 +138,9 @@
+@@ -154,9 +139,9 @@
      rc_check
  
      if rc_status ; then
@@ -92,7 +99,7 @@
      fi
  }
  
-@@ -166,7 +150,7 @@
+@@ -166,7 +151,7 @@
  {
      if [ -f /etc/emcp_devicesDB.dat ]; then 
          if [ -f /etc/emcp_devicesDB.idx ]; then
@@ -101,7 +108,7 @@
              rc_check
          fi
      fi
-@@ -206,9 +190,9 @@
+@@ -206,9 +191,9 @@
  
      /sbin/powermt load		> /dev/null 2>&1
      rc_check
@@ -113,7 +120,7 @@
      /sbin/powermt save		> /dev/null 2>&1
      rc_check
      /sbin/powermt register	> /dev/null 2>&1
-@@ -224,15 +208,15 @@
+@@ -224,15 +209,15 @@
  {
      ps -C naviagent >> /dev/null
      if [ $? -eq 0 ]; then
@@ -133,7 +140,7 @@
          return 1
      fi
  
-@@ -240,8 +224,8 @@
+@@ -240,8 +225,8 @@
      if [ $? -eq 0 ]; then
          echo "$mig_info" | grep 'No migrations found' > /dev/null
          if test $? -ne 0 ; then 
@@ -144,7 +151,7 @@
              return 1
          fi
      fi
-@@ -261,7 +245,7 @@
+@@ -261,7 +246,7 @@
          /sbin/modprobe -q -s --first-time $d
          rc_check
          if [ $? -ne 0 ] ; then
@@ -153,7 +160,7 @@
              break
          fi
      done
-@@ -318,8 +302,8 @@
+@@ -318,8 +303,8 @@
           else
  	    sleep 5
  	    retry=`expr $retry - 1`
@@ -164,7 +171,7 @@
              #/bin/false
      	    #uerr=$?
              #return $uerr
-@@ -334,14 +318,14 @@
+@@ -334,14 +319,14 @@
         uerr=$?
         return $uerr
      else
@@ -182,7 +189,7 @@
      uerr=1
      return $uerr
  }
-@@ -358,20 +342,19 @@
+@@ -358,20 +343,19 @@
      mknod /dev/emcpower c $mmaj $mmin > /dev/null
  
      if [ $? -ne 0 ]; then
@@ -207,7 +214,7 @@
  
          ###
          # Start the 32-bit emulation for ia64
-@@ -387,7 +370,7 @@
+@@ -387,7 +371,7 @@
              lsmod | grep -w '^emcp' > /dev/null
              if [ $? -ne 0 ]; then
                  load_drivers
@@ -216,7 +223,7 @@
                  if dev_emcpower_is_back 60; then
                      recreate_emcpower_device
                      /etc/opt/emcpower/powercf -K        > /dev/null 2>&1
-@@ -396,10 +379,10 @@
+@@ -396,10 +380,10 @@
                      rc_check
                      unload_drivers
                  fi
@@ -231,7 +238,7 @@
                  fi
              fi
  
-@@ -411,7 +394,7 @@
+@@ -411,7 +395,7 @@
                      unload_drivers
                  fi
              else
@@ -240,7 +247,7 @@
                  unload_drivers
              fi
          fi
-@@ -419,11 +402,10 @@
+@@ -419,11 +403,10 @@
          ;;
  
      stop)
@@ -255,7 +262,7 @@
          else
              #
              # Tresspass can happen if new devices are added or some devices 
-@@ -436,7 +418,7 @@
+@@ -436,7 +419,7 @@
              if ok_to_stop; then
                  /sbin/powermt save > /dev/null 2>&1
                  rc_check
@@ -264,7 +271,7 @@
                  rc_check
                  /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
                  devr=$?
-@@ -451,21 +433,21 @@
+@@ -451,21 +434,21 @@
                      unload_drivers
                      rc_check
                      if [ $? -ne 0 ] ; then
@@ -292,7 +299,7 @@
                          /bin/false
                      fi
                  fi
-@@ -476,9 +458,10 @@
+@@ -476,9 +459,10 @@
          rc_status -v
          ;;
      *)
