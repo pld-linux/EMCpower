@@ -36,6 +36,7 @@ Source1:	%{name}.LINUX-%{version}-157.sles10.x86_64.rpm
 NoSource:	0
 NoSource:	1
 Patch0:		%{name}-init.patch
+Requires(post,preun):	/sbin/chkconfig
 Obsoletes:	EMCpower.LINUX
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -165,36 +166,13 @@ done
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%if 0
-%verifyscript
-echo "These PowerPath modules are installed"
-/sbin/lsmod | head -n 1
-/sbin/lsmod | grep emc
-echo "DONE"
+%post
+/sbin/chkconfig --add PowerPath
 
-%pre
-# Check - Only install on a 2.6 kernel
-expr `uname -r` : '2\.6' > /dev/null
-if [ $? -ne 0 ]; then
-	echo "This PowerPath package does not support this kernel."
-	exit 1
+%preun
+if [ "$1" = "0" ]; then
+	/sbin/chkconfig --del PowerPath
 fi
-
-# Check - Make sure no devices are in use.
-if [ "`/sbin/lsmod | grep -w emcp`" != "" ]; then
-	/sbin/powermt save > /dev/null 2>&1
-	/sbin/powermt remove dev=all > /dev/null 2>&1
-	if [ "`powermt display dev=all 2>&1 | grep "not found"`" = "" ]; then
-		echo "Unable to remove devices from the PowerPath configuration."
-		echo "Please make sure no PowerPath devices are in use and retry."
-		/sbin/powermt config > /dev/null 2>&1
-		/sbin/powermt load > /dev/null 2>&1
-		exit 1
-	fi
-	/sbin/powermt config > /dev/null 2>&1
-	/sbin/powermt load > /dev/null 2>&1
-fi
-%endif
 
 %post	-n kernel-block-emc
 %depmod %{_kernel_ver}
