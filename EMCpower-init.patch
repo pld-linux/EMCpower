@@ -3,7 +3,7 @@
 @@ -1,5 +1,6 @@
  #!/bin/sh
  #
-+# chkconfig:	2345 02 -
++# chkconfig:	2345 02 98
  # description: Loads and configures the EMC PowerPath drivers.
  #
  # ###################################################################
