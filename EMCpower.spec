@@ -1,4 +1,24 @@
-%define		_rel	0.7
+#
+# Conditional build:
+%bcond_without	dist_kernel	# allow non-distribution kernel
+%bcond_without	kernel		# build kernel modules
+%bcond_with	up		# don't build UP module
+%bcond_without	smp		# don't build SMP module
+%bcond_without	userspace	# don't build userspace programs
+%bcond_with	verbose		# verbose build (V=1)
+
+%if %{without kernel}
+%undefine	with_dist_kernel
+%endif
+
+%ifarch %{x8664}
+%undefine	with_up
+%endif
+
+%define	__kernel_ver	2.6.16.21-0.8
+%define	__kernel_rpmvr	%{__kernel_ver}
+
+%define		_rel	0.9
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
@@ -27,6 +47,49 @@ disks.
 Oprogramowanie do multi-path z opcją fail-over i dzieleniem obciążenia
 między dyski SCSI.
 
+# kernel subpackages.
+
+%package -n kernel-block-emc
+Summary:	Linux driver for emc
+Summary(pl.UTF-8):	Sterownik dla Linuksa do emc
+Release:	%{_rel}@%{_kernel_ver_str}
+Group:		Base/Kernel
+Requires(post,postun):	/sbin/depmod
+%if %{with dist_kernel}
+%requires_releq_kernel_up
+Requires(postun):	%releq_kernel_up
+%endif
+
+%description -n kernel-block-emc
+This is driver for emc for Linux.
+
+This package contains Linux module.
+
+%description -n kernel-block-emc -l pl.UTF-8
+Sterownik dla Linuksa do emc.
+
+Ten pakiet zawiera moduł jądra Linuksa.
+
+%package -n kernel-smp-block-emc
+Summary:	Linux SMP driver for emc
+Summary(pl.UTF-8):	Sterownik dla Linuksa SMP do emc
+Release:	%{_rel}@%{_kernel_ver_str}
+Group:		Base/Kernel
+Requires(post,postun):	/sbin/depmod
+%if %{with dist_kernel}
+%requires_releq_kernel_smp
+Requires(postun):	%releq_kernel_smp
+%endif
+
+%description -n kernel-smp-block-emc
+This is driver for emc for Linux.
+
+This package contains Linux SMP module.
+
+%description -n kernel-smp-block-emc -l pl.UTF-8
+Sterownik dla Linuksa do emc.
+
+Ten pakiet zawiera moduł jądra Linuksa SMP.
 
 %prep
 %setup -qcT
@@ -43,7 +106,8 @@ echo 'options emcp managedclass=symm,clariion,hitachi,invista,hpxp,ess,hphsx' >>
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir}/emc,%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
+%if %{with userspace}
+install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir},%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
 
 cp -a man/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 install modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{name}.conf
@@ -67,6 +131,33 @@ touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_lock
 install -d $RPM_BUILD_ROOT/opt/emcpower
 install -d $RPM_BUILD_ROOT/etc/emcpower
 touch $RPM_BUILD_ROOT/etc/emc/mpaa.{excluded,lams}
+%endif
+
+%if %{with kernel}
+cd bin/driver
+%if %{with up}
+install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block
+
+brand=sles10; type=default
+%ifarch %{x8664}
+type=${type}_x8664
+%endif
+for a in emcp emcpdm emcpgpx emcpioc emcplib emcpmpx; do
+	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block/$a.ko
+done
+%endif
+
+%if %{with smp} && %{with dist_kernel}
+install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
+brand=sles10; type=smp
+%ifarch %{x8664}
+type=${type}_x8664
+%endif
+for a in emcp emcpdm emcpgpx emcpioc emcplib emcpmpx; do
+	install ${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/$a.ko
+done
+%endif
+%endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -102,6 +193,33 @@ if [ "`/sbin/lsmod | grep -w emcp`" != "" ]; then
 fi
 %endif
 
+%post	-n kernel-block-emc
+%depmod %{_kernel_ver}
+
+%postun	-n kernel-block-emc
+%depmod %{_kernel_ver}
+
+%post	-n kernel-smp-block-emc
+%depmod %{_kernel_ver}-smp
+
+%postun	-n kernel-smp-block-emc
+%depmod %{_kernel_ver}-smp
+
+%if %{with kernel}
+%if %{with up}
+%files -n kernel-block-emc
+%defattr(644,root,root,755)
+/lib/modules/%{_kernel_ver}/kernel/drivers/block/*.ko*
+%endif
+
+%if %{with smp} && %{with dist_kernel}
+%files -n kernel-smp-block-emc
+%defattr(644,root,root,755)
+/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/*.ko*
+%endif
+%endif
+
+%if %{with userspace}
 %files -f EMCpower.lang
 %defattr(644,root,root,755)
 %dir /etc/emc
@@ -121,7 +239,6 @@ fi
 %attr(755,root,root) %{_sbindir}/powerprotect
 %attr(755,root,root) %{_sbindir}/powermig
 %attr(755,root,root) %{_sbindir}/pp_inq
-%dir %{_libdir}/emc
 %attr(755,root,root) %{_libdir}/libemcp.so
 %attr(755,root,root) %{_libdir}/libemcp_core.so
 %attr(755,root,root) %{_libdir}/libemcp_lam.so
@@ -143,3 +260,4 @@ fi
 %ghost /etc/opt/emcpower/.__emcp_db_lock
 /opt/emcpower
 %dir /etc/emcpower
+%endif
