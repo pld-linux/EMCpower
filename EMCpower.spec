@@ -18,7 +18,10 @@
 %define	__kernel_ver	2.6.16.21-0.8
 %define	__kernel_rpmvr	%{__kernel_ver}
 
-%define		_rel	0.9
+%define	releq_kernel_smp	kernel-smp = 0:%{__kernel_ver}
+%define	releq_kernel_up		kernel-up = 0:%{__kernel_ver}
+
+%define		_rel	0.10
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
