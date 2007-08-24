@@ -22,7 +22,7 @@
 %define	releq_kernel_smp	kernel-smp = 0:%{__kernel_ver}
 %define	releq_kernel_up		kernel-up = 0:%{__kernel_ver}
 
-%define		_rel	0.12
+%define		_rel	0.20
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
@@ -40,7 +40,7 @@ Source1:	%{name}.LINUX-%{version}-157.sles10.x86_64.rpm
 # NoSource1-md5:	cf980fc4714f0be008de168333cefcb4
 NoSource:	1
 %endif
-Patch0:		%{name}-init.patch
+Source2:	PowerPath.init
 Requires(post,preun):	/sbin/chkconfig
 Obsoletes:	EMCpower.LINUX
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
@@ -109,8 +109,6 @@ rpm2cpio %{SOURCE0} | cpio -dimu
 rpm2cpio %{SOURCE1} | cpio -dimu
 %endif
 mv etc/opt/emcpower/EMCpower.LINUX-%{version}/* .
-cp PowerPath{.rhel,}
-%patch0 -p1
 echo 'options emcp managedclass=symm,clariion,hitachi,invista,hpxp,ess,hphsx' >> modprobe.conf.pp
 
 %install
@@ -120,7 +118,7 @@ install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir},%{_sbindir},%{_mandir}/man1,
 
 cp -a man/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 cp -a i18n/catalog/* $RPM_BUILD_ROOT%{_datadir}/locale
-install PowerPath $RPM_BUILD_ROOT/etc/rc.d/init.d/PowerPath
+install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/PowerPath
 install bin/lib/* $RPM_BUILD_ROOT%{_libdir}
 install bin/cmds/* $RPM_BUILD_ROOT%{_sbindir}
 cp -a bin/.drivers_* $RPM_BUILD_ROOT/etc/emc
@@ -243,8 +241,10 @@ fi
 
 # hardcoded paths. oh sigh
 %dir /etc/opt/emcpower
+/etc/opt/emcpower/emcpmgr
+/etc/opt/emcpower/powercf
 %ghost /etc/opt/emcpower/.__emcp_db_global_lock
 %ghost /etc/opt/emcpower/.__emcp_db_lock
-/opt/emcpower
+%dir /opt/emcpower
 %dir /etc/emcpower
 %endif
