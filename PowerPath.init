@@ -151,7 +151,7 @@ configure_pp()
 {
     if [ -f /etc/emcp_devicesDB.dat ]; then 
         if [ -f /etc/emcp_devicesDB.idx ]; then
-            /sbin/emcpmgr map -p > /dev/null 2>&1
+            /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
             rc_check
         fi
     fi
@@ -191,9 +191,9 @@ configure_pp()
 
     /sbin/powermt load		> /dev/null 2>&1
     rc_check
-    /sbin/emcpmgr map	> /dev/null 2>&1
+    /etc/opt/emcpower/emcpmgr map	> /dev/null 2>&1
     rc_check
-    /sbin/powercf -C	> /dev/null 2>&1
+    /etc/opt/emcpower/powercf -C	> /dev/null 2>&1
     /sbin/powermt save		> /dev/null 2>&1
     rc_check
     /sbin/powermt register	> /dev/null 2>&1
@@ -253,7 +253,7 @@ load_drivers()
 
     if dev_emcpower_is_back 60; then
         recreate_emcpower_device
-        /sbin/powercf -K        > /dev/null 2>&1
+        /etc/opt/emcpower/powercf -K        > /dev/null 2>&1
         rc_check
     else
         rc_check
@@ -373,7 +373,7 @@ case "$1" in
         else
                 if dev_emcpower_is_back 60; then
                     recreate_emcpower_device
-                    /sbin/powercf -K        > /dev/null 2>&1
+                    /etc/opt/emcpower/powercf -K        > /dev/null 2>&1
                     rc_check
                 else
                     rc_check
@@ -415,7 +415,7 @@ case "$1" in
             if ok_to_stop; then
                 /sbin/powermt save > /dev/null 2>&1
                 rc_check
-                /sbin/emcpmgr unmap > /dev/null 2>&1
+                /etc/opt/emcpower/emcpmgr unmap > /dev/null 2>&1
                 rc_check
                 /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
                 devr=$?
@@ -442,7 +442,7 @@ case "$1" in
                     else
                         nls "PowerPath devices are open."
                         eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
-                        /sbin/emcpmgr map -p > /dev/null 2>&1
+                        /etc/opt/emcpower/emcpmgr map -p > /dev/null 2>&1
                         /sbin/powermt config 	> /dev/null 2>&1
 						/sbin/powermt load	> /dev/null 2>&1
                         /bin/false
