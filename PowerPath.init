@@ -1,0 +1,468 @@
+#!/bin/sh
+#
+# chkconfig:	2345 02 98
+# description: Loads and configures the EMC PowerPath drivers.
+#
+# ###################################################################
+# Copyright (c) 2000, EMC Corporation. All Rights Reserved.
+#
+# Most Recent Author: Raghu Adabala
+# Previous Authors: Raghu Adabala and Ed Goggin
+#
+# Contents:
+# Redhat support for load and configure of EMC PowerPath drivers
+# ###################################################################
+#
+
+# @(#) $Header$
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+
+# Functions to preserve exceptional command status return values
+
+rc_reset()
+{
+    rc_cmd_stat=0
+    rc_script_stat=0
+}
+
+rc_check()
+{
+    rc_cmd_stat=$?
+    test $rc_cmd_stat -ne 0 && rc_script_stat=$rc_cmd_stat
+    return $rc_cmd_stat
+}
+
+rc_status()
+{
+    rc_check
+
+    if [ "$1" = "-v" ]
+        then
+        case "$rc_script_stat" in
+            0)
+              ok
+              ;;
+            *)
+              fail
+              ;;
+        esac
+    fi
+    return $rc_script_stat
+}
+
+rc_exit()
+{
+    exit $rc_script_stat
+}
+
+#
+# ###################################################################
+# Copyright (c) 2005, EMC Corporation. All Rights Reserved.
+#
+#
+# Contents:
+# This scripts loads and configures the EMC PowerPath driver(s) on 
+# bootup and uloads PowerPath on shutdown.
+# ###################################################################
+#
+
+# @(#) $Header$
+
+PATH=/usr/bin/:/bin:/sbin:/usr/sbin
+
+# the following are the internationalization specific lines
+TEXTDOMAIN=PowerPath
+export TEXTDOMAIN
+export RPM_INSTALL_PREFIX
+# end of internationalization
+
+pp_stop_lvm()
+{
+    if test -x /sbin/vgchange -a -x /sbin/vgscan ; then
+        open_vol=""
+        vgname=`vgdisplay 2>/dev/null| grep "VG Name" | sed -e 's/VG Name/ /g'`
+        for i in $vgname
+        do
+                pv=`vgdisplay -v $i 2>/dev/null| grep "PV Name"  | awk '{ print $3 }' | grep emcpower`
+		if [ "$pv" != "" ] ; then
+                        err_stop=`/sbin/vgchange -a n $i  2>&1 | grep "open logical volume"`
+                        if [ "$err_stop" != "" ]; then
+                                if [ "$open_vol" = "" ]; then
+										nls "Following LVM volume groups are in use:"
+                                        open_vol=$err_stop
+                                fi
+			var1=$i
+			var2=`echo $pv`
+                        echo "`nls "      Volume Group: \\$var1 (\\$var2)"`"
+                        fi
+                fi
+        done
+    fi
+        if [ "$open_vol" != "" ]; then
+			nls "These open logical volume devices use LUNs from Powerpath managed devices,"
+			nls "Please re-issue the command after closing these volumes."
+	return 1
+        fi
+ return 0
+}
+
+pp_start_lvm()
+{
+   if test -x /sbin/vgchange -a -x /sbin/vgscan ; then
+      /sbin/vgscan > /dev/null 2>&1
+      /sbin/vgchange -a y > /dev/null 2>&1
+      if [ $? -eq 5 ]; then  ## "no volume groups" ==> success
+        /bin/true
+      fi
+   fi
+}
+# Wait for /dev/emcpower to appear.
+# $1 is the number of seconds to wait.
+
+dev_emcpower_is_back()
+{
+    /bin/bash -c "for ((cnt=$1/3; \$cnt > 0; cnt--)); do \
+                      test -c /dev/emcpower && break; \
+                      sleep 3; \
+                  done; \
+                  test -c /dev/emcpower"
+}
+
+
+# Start 32 bit Emulation library before powerpath startup for ia64
+start_32bit_emulation()
+{
+    /etc/init.d/ia32el start  > /dev/null 2>&1
+    rc_check
+
+    if rc_status ; then
+	nls "\nSuccessfully started 32-bit emulation library"
+    else
+	nls "\nError in starting 32-bit emulation library"
+    fi
+}
+
+# Configure PowerPath paths
+
+configure_pp()
+{
+    if [ -f /etc/emcp_devicesDB.dat ]; then 
+        if [ -f /etc/emcp_devicesDB.idx ]; then
+            /sbin/emcpmgr map -p > /dev/null 2>&1
+            rc_check
+        fi
+    fi
+
+    ## If the system has no license, config error is ok.
+
+    if /sbin/emcpreg -l 2>&1 | /usr/bin/grep '^Key' > /dev/null 2>&1; then
+        /sbin/powermt config > /dev/null 2>&1
+    else
+        /sbin/powermt config > /dev/null 2>&1
+        /bin/true
+    fi
+    rc_check
+
+    #
+    #  Wait for udev to finish creating emcpower devices
+    #
+    pdfound=1
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        pdfound=1
+    	for pd in `/bin/ls -d /sys/block/emcpower* 2> /dev/null`; do
+           bpd=`basename $pd`
+           if [ ! -e /dev/$bpd ]; then
+              pdfound=0
+              sleep 2
+              break;
+           fi
+        done
+        if [ "$pdfound" -eq 1 ]; then
+	   break
+        fi
+    done
+    if [ "$pdfound" -eq 0 ]; then
+       [ 1 = 0 ]
+       rc_check
+    fi
+
+    /sbin/powermt load		> /dev/null 2>&1
+    rc_check
+    /sbin/emcpmgr map	> /dev/null 2>&1
+    rc_check
+    /sbin/powercf -C	> /dev/null 2>&1
+    /sbin/powermt save		> /dev/null 2>&1
+    rc_check
+    /sbin/powermt register	> /dev/null 2>&1
+    rc_check
+    /sbin/powermig transition -startup -noprompt   > /dev/null 2>&1
+    rc_check
+    pp_start_lvm
+}
+
+# Check for naviagent and powermt before stopping PowerPath
+
+ok_to_stop()
+{
+    ps -C naviagent >> /dev/null
+    if [ $? -eq 0 ]; then
+	nls "Navisphere agent is running."
+        eval echo "$(nls "Please stop the agent and then re-issue \$script_name stop.")"
+        return 1
+    fi
+
+    ps -C powermt >> /dev/null
+    if [ $? -eq 0 ]; then
+	nls "The powermt command is running."
+		eval echo "$(nls "Please stop powermt and then re-issue \$script_name stop.")"
+        return 1
+    fi
+
+    mig_info=`/sbin/powermig info -all`
+    if [ $? -eq 0 ]; then
+        echo "$mig_info" | grep 'No migrations found' > /dev/null
+        if test $? -ne 0 ; then 
+			nls "PowerPath migrations are present."
+			eval echo "$(nls "Please cleanup the migrations and then re-issue \$script_name stop.")"
+            return 1
+        fi
+    fi
+
+    if pp_stop_lvm ; then
+        return 0
+    fi
+    return 1
+}
+
+#  Load the extensions.  Dependencies will load base driver.
+
+load_drivers()
+{
+    for d in `cat $ext; cat $mgr`
+    do
+        /sbin/modprobe -q -s --first-time $d
+        rc_check
+        if [ $? -ne 0 ] ; then
+            eval echo "$(nls "PowerPath could not load module \$d")"
+            break
+        fi
+    done
+
+    if dev_emcpower_is_back 60; then
+        recreate_emcpower_device
+        /sbin/powercf -K        > /dev/null 2>&1
+        rc_check
+    else
+        rc_check
+        unload_drivers
+    fi
+
+    if rc_status ; then
+        /sbin/modprobe -q -s --first-time emcpioc
+        rc_check
+        if [ $? -eq 0 ] ; then
+            /sbin/modprobe -r -q -s --first-time emcpioc
+        fi
+    fi
+}
+
+# Unload drivers and extensions.
+
+unload_drivers()
+{
+    do_unload=0
+    retry=4
+    powermt prep_drv_unload > /dev/null 2>&1
+
+
+    ###
+    ### At this point, we really want the driver unload to succeed
+    ### Try hard to make it happen.
+    ###
+    while [ $retry -gt 0 ]
+    do
+    powermt remove dev=all 2> /var/tmp/.pp_exit
+    devr=$?
+    cat /var/tmp/.pp_exit | grep "not found" > /dev/null 2>&1
+    cdevs=$?
+    zerolen=`cat /var/tmp/.pp_exit | wc -c`
+    rm /var/tmp/.pp_exit
+    # reset rc status since we are not willing to
+    # report an error just yet.
+    rc_reset
+    if [ $devr -eq 0 ] ; then
+         do_unload=1
+	 retry=0 #success
+    else
+         if [ $cdevs -eq 0 -o $zerolen -eq 0 ] ; then
+            do_unload=1
+	    retry=0 #success
+         else
+	    sleep 5
+	    retry=`expr $retry - 1`
+	    #nls "PowerPath devices are open."
+	    #eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
+            #/bin/false
+    	    #uerr=$?
+            #return $uerr
+         fi
+    fi
+    done
+
+
+    
+    if [ $do_unload -eq 1 ] ; then
+       /sbin/modprobe -r -q -s  `cat $mgr; cat $ext; echo emcp emcplib`
+       uerr=$?
+       return $uerr
+    else
+       nls "PowerPath devices are open."
+       eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
+       /bin/false
+       uerr=$?
+       return $uerr
+    fi
+
+    nls "PowerPath could not unload PowerPath modules."
+    uerr=1
+    return $uerr
+}
+
+recreate_emcpower_device()
+{
+    #
+    # Create /dev/emcpower based on CURRENT misc driver.
+    # These values can be different when PP loads from RD.
+    #
+    rm -f /dev/emcpower
+    mmaj=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $1}'`
+    mmin=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $2}'`
+    mknod /dev/emcpower c $mmaj $mmin > /dev/null
+
+    if [ $? -ne 0 ]; then
+        nls "failed to create emcpower device"
+    fi
+
+}
+
+rc_reset
+script_name=PowerPath
+ext=/etc/emc/.drivers_ext
+mgr=/etc/emc/.drivers_mgr
+
+case "$1" in
+    start)
+        msg_starting "PowerPath"
+
+        ###
+        # Start the 32-bit emulation for ia64
+        ###
+        #if [ "`uname -m`" == "ia64" ]; then
+         #   start_32bit_emulation
+        #fi
+
+        ###
+        # Load PP iff it is not already loaded.
+        ###
+        if rc_status ; then
+            lsmod | grep -w '^emcp' > /dev/null
+            if [ $? -ne 0 ]; then
+                load_drivers
+        else
+                if dev_emcpower_is_back 60; then
+                    recreate_emcpower_device
+                    /sbin/powercf -K        > /dev/null 2>&1
+                    rc_check
+                else
+                    rc_check
+                    unload_drivers
+                fi
+            # remove PIOC if it was loaded during RD boot.
+                lsmod | grep emcpioc > /dev/null
+            if [ $? -eq 0 ]; then
+                /sbin/rmmod emcpioc > /dev/null
+                fi
+            fi
+
+            if rc_status ; then
+                if dev_emcpower_is_back 60; then
+                    configure_pp
+                else
+                    rc_check
+                    unload_drivers
+                fi
+            else
+                nls "PowerPath: unable to load PowerPath modules."
+                unload_drivers
+            fi
+        fi
+        rc_status -v
+        ;;
+
+    stop)
+        msg_stopping "PowerPath"
+        lsmod | grep -w '^emcp' > /dev/null
+        if test $? -ne 0; then
+            nls "PowerPath is not running"
+        else
+            #
+            # Tresspass can happen if new devices are added or some devices 
+            # are removed by "powermt remove" before "PowerPath stop". The 
+            # reason is that vgscan used by us issues "read" to all block 
+            # devices. 
+            # We configure all devices to avoid unnecessary trespass.
+            #
+            /sbin/powermt config > /dev/null 2>&1
+            if ok_to_stop; then
+                /sbin/powermt save > /dev/null 2>&1
+                rc_check
+                /sbin/emcpmgr unmap > /dev/null 2>&1
+                rc_check
+                /sbin/powermt remove dev=all 2> /var/tmp/.pp_exit
+                devr=$?
+                cat /var/tmp/.pp_exit | grep "not found" > /dev/null 2>&1
+                cdevs=$?
+                zerolen=`cat /var/tmp/.pp_exit | wc -c`
+                rm /var/tmp/.pp_exit
+
+		# reset rc status since we are not willing to quit
+		rc_reset
+                if [ $devr -eq 0 ] ; then
+                    unload_drivers
+                    rc_check
+                    if [ $? -ne 0 ] ; then
+						nls "PowerPath could not unload PowerPath modules."
+                    fi
+                else
+                    if [ $cdevs -eq 0 -o $zerolen -eq 0 ] ; then
+                        unload_drivers
+                        rc_check
+                        if [ $? -ne 0 ] ; then
+                            nls "PowerPath could not unload PowerPath modules."
+                        fi
+                    else
+                        nls "PowerPath devices are open."
+                        eval echo "$(nls "Please close these devices and then re-issue \$script_name stop.")"
+                        /sbin/emcpmgr map -p > /dev/null 2>&1
+                        /sbin/powermt config 	> /dev/null 2>&1
+						/sbin/powermt load	> /dev/null 2>&1
+                        /bin/false
+                    fi
+                fi
+            else
+                /bin/false  ## not ok_to_stop
+            fi
+        fi
+        rc_status -v
+        ;;
+    *)
+        msg_usage "$0 {start|stop}"
+        exit 3
+	;;
+esac
+
+rc_exit
+# vim:ts=4:sw=4:et
