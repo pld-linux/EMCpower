@@ -11,6 +11,7 @@
 %undefine	with_dist_kernel
 %endif
 
+# just don't want to build it :)
 %ifarch %{x8664}
 %undefine	with_up
 %endif
@@ -29,12 +30,16 @@ Version:	5.0.0
 Release:	%{_rel}
 License:	Proprietary (not distributable)
 Group:		Base
+%ifarch %{ix86}
 Source0:	%{name}.LINUX-%{version}-157.sles10.i386.rpm
 # NoSource0-md5:	9e687044c65d2ee368b71c339e639522
+NoSource:	0
+%endif
+%ifarch %{x8664}
 Source1:	%{name}.LINUX-%{version}-157.sles10.x86_64.rpm
 # NoSource1-md5:	cf980fc4714f0be008de168333cefcb4
-NoSource:	0
 NoSource:	1
+%endif
 Patch0:		%{name}-init.patch
 Requires(post,preun):	/sbin/chkconfig
 Obsoletes:	EMCpower.LINUX
