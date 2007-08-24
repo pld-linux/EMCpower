@@ -129,8 +129,8 @@ cat PowerPath.lang >> EMCpower.lang
 
 # hardcoded paths. oh sigh
 install -d $RPM_BUILD_ROOT/etc/opt/emcpower/.tmp
-ln -s %{_sbindir}/emcpmgr $RPM_BUILD_ROOT/etc/opt/emcpower
-ln -s %{_sbindir}/powercf $RPM_BUILD_ROOT/etc/opt/emcpower
+mv $RPM_BUILD_ROOT{%{_sbindir},/etc/opt/emcpower}/emcpmgr
+mv $RPM_BUILD_ROOT{%{_sbindir},/etc/opt/emcpower}/powercf
 touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_global_lock
 touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_lock
 
@@ -216,10 +216,8 @@ fi
 %attr(754,root,root) /etc/rc.d/init.d/PowerPath
 %attr(755,root,root) %{_sbindir}/emcpadm
 %attr(755,root,root) %{_sbindir}/emcpdiscover
-%attr(755,root,root) %{_sbindir}/emcpmgr
 %attr(755,root,root) %{_sbindir}/emcppurge
 %attr(755,root,root) %{_sbindir}/emcpreg
-%attr(755,root,root) %{_sbindir}/powercf
 %attr(755,root,root) %{_sbindir}/powermt
 %attr(755,root,root) %{_sbindir}/powerprotect
 %attr(755,root,root) %{_sbindir}/powermig
@@ -241,8 +239,8 @@ fi
 
 # hardcoded paths. oh sigh
 %dir /etc/opt/emcpower
-/etc/opt/emcpower/emcpmgr
-/etc/opt/emcpower/powercf
+%attr(755,root,root) /etc/opt/emcpower/emcpmgr
+%attr(755,root,root) /etc/opt/emcpower/powercf
 %ghost /etc/opt/emcpower/.__emcp_db_global_lock
 %ghost /etc/opt/emcpower/.__emcp_db_lock
 %dir /opt/emcpower
