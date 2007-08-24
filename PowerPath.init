@@ -257,7 +257,6 @@ load_drivers()
         rc_check
     else
         rc_check
-        unload_drivers
     fi
 
     if rc_status ; then
@@ -378,7 +377,6 @@ case "$1" in
                     rc_check
                 else
                     rc_check
-                    unload_drivers
                 fi
             # remove PIOC if it was loaded during RD boot.
                 lsmod | grep emcpioc > /dev/null
@@ -392,11 +390,9 @@ case "$1" in
                     configure_pp
                 else
                     rc_check
-                    unload_drivers
                 fi
             else
                 nls "PowerPath: unable to load PowerPath modules."
-                unload_drivers
             fi
         fi
         rc_status -v
