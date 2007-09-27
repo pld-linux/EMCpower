@@ -16,27 +16,30 @@
 %undefine	with_up
 %endif
 
-%define	__kernel_ver	2.6.16.21-0.8
+%define	__kernel_ver	2.6.16.46-0.12
 %define	__kernel_rpmvr	%{__kernel_ver}
 
 %define	releq_kernel_smp	kernel-smp = 0:%{__kernel_ver}
 %define	releq_kernel_up		kernel-up = 0:%{__kernel_ver}
 
-%define		_rel	1
+%define	brand sles10sp1
+
+%define		_rel	0.3
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
-Version:	5.0.0
+Version:	5.0.1
 Release:	%{_rel}
 License:	Proprietary (not distributable)
 Group:		Base
+URL:		https://powerlink.emc.com/
 %ifarch %{ix86}
-Source0:	%{name}.LINUX-%{version}-157.sles10.i386.rpm
+Source0:	%{name}.LINUX-%{version}-022.%{brand}.i386.rpm
 # NoSource0-md5:	9e687044c65d2ee368b71c339e639522
 NoSource:	0
 %endif
 %ifarch %{x8664}
-Source1:	%{name}.LINUX-%{version}-157.sles10.x86_64.rpm
+Source1:	%{name}.LINUX-%{version}-022.%{brand}.x86_64.rpm
 # NoSource1-md5:	cf980fc4714f0be008de168333cefcb4
 NoSource:	1
 %endif
@@ -116,6 +119,11 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with userspace}
 install -d $RPM_BUILD_ROOT{/etc/emc/ppme,%{_libdir},%{_sbindir},%{_mandir}/man1,/etc/modprobe.d,%{_datadir}/locale,/etc/rc.d/init.d}
 
+# udev
+install -d $RPM_BUILD_ROOT{/etc/udev/rules.d,/lib/udev}
+install udev-pp.rules $RPM_BUILD_ROOT/etc/udev/rules.d
+install pp_udev.sh $RPM_BUILD_ROOT/lib/udev/pp_udev.sh
+
 cp -a man/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 cp -a i18n/catalog/* $RPM_BUILD_ROOT%{_datadir}/locale
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/PowerPath
@@ -144,25 +152,17 @@ touch $RPM_BUILD_ROOT/etc/emc/mpaa.{excluded,lams}
 install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block
 install -D modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{_kernel_ver}/%{name}.conf
 
-brand=sles10; type=default
+brand=%{brand}; type=default
 %ifarch %{x8664}
-type=${type}_x8664
+install bin/driver/%{brand}default_x8664/*.ko $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
 %endif
-for a in emcp emcpdm emcpgpx emcpioc emcplib emcpmpx; do
-	install bin/driver/${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block/$a.ko
-done
 %endif
 
 %if %{with smp} && %{with dist_kernel}
 install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
 install -D modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{_kernel_ver}-smp/%{name}.conf
-brand=sles10; type=smp
 %ifarch %{x8664}
-type=${type}_x8664
-%endif
-for a in emcp emcpdm emcpgpx emcpioc emcplib emcpmpx; do
-	install bin/driver/${a}_$brand$type $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block/$a.ko
-done
+install bin/driver/%{brand}smp_x8664/*.ko $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
 %endif
 %endif
 
@@ -208,6 +208,9 @@ fi
 %if %{with userspace}
 %files -f EMCpower.lang
 %defattr(644,root,root,755)
+/etc/udev/rules.d/*.rules
+%attr(755,root,root) /lib/udev/pp_udev.sh
+
 %dir /etc/emc
 %dir /etc/emc/ppme
 /etc/emc/.drivers_*
