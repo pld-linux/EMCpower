@@ -336,10 +336,10 @@ recreate_emcpower_device()
     # Create /dev/emcpower based on CURRENT misc driver.
     # These values can be different when PP loads from RD.
     #
+    mmaj=`awk -F: '{print $1}' /sys/class/misc/emcpower/dev`
+    mmin=`awk -F: '{print $2}' /sys/class/misc/emcpower/dev`
     rm -f /dev/emcpower
-    mmaj=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $1}'`
-    mmin=`cat /sys/class/misc/emcpower/dev | awk -F : '{print $2}'`
-    mknod /dev/emcpower c $mmaj $mmin > /dev/null
+    mknod /dev/emcpower c $mmaj $mmin
 
     if [ $? -ne 0 ]; then
         nls "failed to create emcpower device"
