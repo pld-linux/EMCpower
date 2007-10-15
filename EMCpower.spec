@@ -40,7 +40,7 @@ NoSource:	0
 %endif
 %ifarch %{x8664}
 Source1:	%{name}.LINUX-%{version}-022.%{brand}.x86_64.rpm
-# NoSource1-md5:	cf980fc4714f0be008de168333cefcb4
+# NoSource1-md5:	cbe183e0a7f4beef04873529313a7325
 NoSource:	1
 %endif
 Source2:	PowerPath.init
@@ -152,7 +152,6 @@ touch $RPM_BUILD_ROOT/etc/emc/mpaa.{excluded,lams}
 install -d $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}/kernel/drivers/block
 install -D modprobe.conf.pp $RPM_BUILD_ROOT/etc/modprobe.d/%{_kernel_ver}/%{name}.conf
 
-brand=%{brand}; type=default
 %ifarch %{x8664}
 install bin/driver/%{brand}default_x8664/*.ko $RPM_BUILD_ROOT/lib/modules/%{_kernel_ver}-smp/kernel/drivers/block
 %endif
