@@ -16,7 +16,7 @@ init_I18N()
         }
         eval_gettext()
         {
-            eval printf "$*"
+            eval echo "$*"
         }
     else
         . gettext.sh
@@ -276,8 +276,10 @@ verify_driver_vermagic()
 
 load_all_modules()
 {
-    local mod=`basename "$1" .ko`
-    shift 1
+    local mod=`basename "$1" .ko.gz`
+	if [ "$1" ]; then
+		shift 1
+	fi
 
     if [ -z "$mod" ]
     then
@@ -289,6 +291,7 @@ load_all_modules()
     fi
     if modprobe -q $mod
     then
+		echo >&2 "recurse:$*"
         load_all_modules $*
         if [ $? -ne 0 ]
         then
@@ -309,7 +312,7 @@ validate_install_target()
 {
 ## Check - Require effective UID of root
 
-    if [ $EUID != 0 ]; then
+    if [ $(id -u) != 0 ]; then
         report_error "You must be root to install PowerPath."
         error_exit
     fi
@@ -363,18 +366,9 @@ validate_install_target()
         /sbin/powermt load > /dev/null 2>&1
     fi
 
-## Do we have modules that work with this kernel?
-
-    TAG=`identify_platform \`uname -r\``
-    if [ -z "$TAG" ]; then
-        report_error "This PowerPath package does not support this kernel."
-        report_error '$PPBASE'
-        error_exit
-    fi
-
 ## Check driver vermagic
 
-    verify_driver_vermagic $PPBASE/bin/driver/$TAG/emcp.ko
+    verify_driver_vermagic /lib/modules/$(uname -r)/kernel/drivers/block/emcp.ko.gz
     if [ $? != 0 ]; then
         report_error 'PowerPath driver version magic mismatch'
         error_exit
@@ -601,7 +595,7 @@ update_driver_parameters()
 	EOF
     fi
 
-    copy_file $PPBASE/modprobe.conf.pp $modprobe_file
+    copy_file /etc/modprobe.d/$(uname -r)/EMCpower.conf $modprobe_file
 
     ## Update the managedclass parameter line
 
@@ -683,6 +677,7 @@ update_boot_logic()
 #-----------------------------------------------------------------------
 install_driver_modules()
 {
+	return # already cames from rpm package
 for os in /lib/modules/*
 do
   case $os in
@@ -735,16 +730,16 @@ VENDOR=`rpm --showrc | awk '$2 == "_vendor" {print $3}'`
 # SuSE x86_64 specific:
 #
 
-EXPECTED_VENDOR=suse
-VENDOR_NAME=Suse
+EXPECTED_VENDOR=pld
+VENDOR_NAME=PLD
 VENDOR_OS_NAME=SLES10SP1
 EXPECTED_ISA=x86_64
-EXPECTED_OS_REV=10sp1
+EXPECTED_OS_REV=ac
 MIN_UPGRADE_REV=5.0.0
 
 check_vendor_rev()
 {
-if [ "`cat /etc/SuSE-release | awk '$1 == "PATCHLEVEL" {print $3}'`" ==  "1" ]
+if [ "`awk '/Ac/{print 1}' /etc/pld-release`" ==  "1" ]
 then
    sles_version=$EXPECTED_OS_REV
 else
@@ -799,11 +794,11 @@ install_driver_modules
 ## Load new modules.  Emcplib and emcp first, emcpdm and emcpioc last
 ## with everything else in between.
 
-load_all_modules `ls $PPBASE/bin/driver/$TAG | \
-                  awk '/^emcplib.ko$/ {order[$1]=1; next}
-                       /^emcp.ko$/    {order[$1]=2; next}
-                       /^emcpdm.ko$/  {order[$1]=4; next}
-                       /^emcpioc.ko$/ {order[$1]=5; next}
+load_all_modules `cd /lib/modules/$(uname -r)/kernel/drivers/block/; ls emc* | \
+                  awk '/^emcplib.ko.gz$/ {order[$1]=1; next}
+                       /^emcp.ko.gz$/    {order[$1]=2; next}
+                       /^emcpdm.ko.gz$/  {order[$1]=4; next}
+                       /^emcpioc.ko.gz$/ {order[$1]=5; next}
                        /^emcp/        {order[$1]=3; next}
                        END { for (mod in order) print order[mod],mod;}' |\
                   sort -n | \
