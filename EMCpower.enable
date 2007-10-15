@@ -1,0 +1,848 @@
+#!/bin/sh
+#
+# Enable a newly installed package to run or enable an existing package
+# to run after a kernal upgrade.
+#
+
+init_I18N()
+{
+    type -P gettext.sh > /dev/null 2>&1 && \
+        type -p gettext >/dev/null  2>&1
+
+    if [ $? -ne 0 ]; then
+        gettext()
+        {
+            printf "$*"
+        }
+        eval_gettext()
+        {
+            eval printf "$*"
+        }
+    else
+        . gettext.sh
+
+        TEXTDOMAIN=EMCpower
+        export TEXTDOMAIN
+        TEXTDOMAINDIR=$PPBASE/i18n/catalog
+        export TEXTDOMAINDIR
+        export RPM_INSTALL_PREFIX
+    fi
+}
+
+report_error()
+{
+    eval_gettext "$*"
+    echo
+}
+
+error_exit()
+{
+    exit 1
+}
+
+########
+### DO NOT REMOVE THE FOLLOWING LINE
+#####################################################################
+### Start of Global variable section.
+#####################################################################
+
+# Temp directory used by the %pre section.  (Before $PP_I_DIR exists.)
+#
+PRE_TMP=/var/tmp
+#
+# Default installation directory for emcpower
+#
+PP_I_DIR=/etc/opt/emcpower
+#
+# The file name of the device file used to control the power path drivers
+#
+# created by sysfs in 2.6.
+#POWER_DEV=/dev/emcpower
+#
+# Installation log file
+#
+POWER_LOG=$PP_I_DIR/log
+#
+# Installation temporary file directory.
+#
+POWER_TMP_DIR=$PP_I_DIR/.tmp
+#
+# Backup archives used in case an installation is aborted in mid-stream
+#
+POWER_BACKUP_ARCHIVE=$PP_I_DIR/.archive.tar
+POWER_BACKUP_ARCHIVE_NEW=$PP_I_DIR/.archive_NEW.tar
+archive_dir=$RPM_INSTALL_PREFIX/etc/emc/archive
+#
+# Patch log file in case of patch errors
+#
+PATCH_LOG=$PP_I_DIR/patch.log
+
+#
+# local modprobe file
+modprobe_file=/etc/modprobe.conf.pp
+#####################################################################
+### End of Global variable section.
+#####################################################################
+########
+
+#-----------------------------------------------------------------------
+# Restore system to the state that existed before this script ran.
+# First, execute the commands in the undo list in reverse order, then
+# untar archived files.
+#-----------------------------------------------------------------------
+rollback()
+{
+    awk '{print NR,$0}' $POWER_TMP_DIR/undolist | \
+        sort -nr | \
+        cut -d' ' -f2- > $POWER_TMP_DIR/undo.sh
+    sh $POWER_TMP_DIR/undo.sh
+
+    tar -x --absolute-names --file $POWER_TMP_DIR/rollbackfiles.tar
+}
+
+#-----------------------------------------------------------------------
+# Delete the files containing rollback information
+#-----------------------------------------------------------------------
+rollback_reset()
+{
+    rm -f $POWER_TMP_DIR/rollbackfiles.tar
+    rm -f $POWER_TMP_DIR/undolist
+    rm -f $POWER_TMP_DIR/undo.sh
+}
+
+#-----------------------------------------------------------------------
+# Save a directory and contained files in the rollback archive
+#-----------------------------------------------------------------------
+save_dirtree_for_rollback()
+{
+    local pathname
+    case "$1" in
+        /*) pathname=$1 ;;
+         *) pathname=`pwd`/$1 
+    esac
+   tar --append --preserve-permissions --absolute-names \
+       --file $POWER_TMP_DIR/rollbackfiles.tar $pathname
+}
+
+#-----------------------------------------------------------------------
+# Save a file or directory in the rollback archive
+#-----------------------------------------------------------------------
+save_for_rollback()
+{
+    local pathname
+    case "$1" in
+        /*) pathname=$1 ;;
+         *) pathname=`pwd`/$1 
+    esac
+    tar --append --preserve-permissions --absolute-names \
+    --no-recursion --file $POWER_TMP_DIR/rollbackfiles.tar $pathname
+}
+
+#-----------------------------------------------------------------------
+# Add a shell command, for execution during rollback, to the undo list
+#-----------------------------------------------------------------------
+add_to_undolist()
+{
+    echo "cd `pwd`; $*" >> $POWER_TMP_DIR/undolist
+}
+
+#-----------------------------------------------------------------------
+# Move a file in such a way that the original source and destination
+# files are restored by rollback.
+#-----------------------------------------------------------------------
+move_file()
+{
+    save_for_rollback $1
+    local dest
+    if [ -d "$2" ]; then
+        dest=$2/`basename $1`
+    else
+        dest=$2
+    fi
+    if [ -f "$dest" ]; then
+        save_for_rollback $dest
+    else
+        add_to_undolist rm -f "$dest"
+    fi
+    mv -f $1 $dest
+}
+
+#-----------------------------------------------------------------------
+# Copy a new file over an old one,in such a way that the old file
+# can be restored during rollback. 
+#-----------------------------------------------------------------------
+copy_file()
+{
+    local dest
+    if [ -d "$2" ]; then
+        dest=$2/`basename $1`
+    else
+        dest=$2
+    fi
+    if [ -f "$dest" ]; then
+        save_for_rollback $dest
+    else
+        add_to_undolist rm -f "$dest"
+    fi
+    cp -pf $1 $2
+}
+
+#-----------------------------------------------------------------------
+# Save a file in the rollback archive and then delete it.
+#-----------------------------------------------------------------------
+remove_file()
+{
+    if [ -f "$1" ]; then
+        save_for_rollback $1
+        rm -f $1
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Save a directory and contained files in the rollback archive and then
+# delete them.
+#-----------------------------------------------------------------------
+remove_dirtree()
+{
+    if [ -d "$1" ]; then
+        save_dirtree_for_rollback $1
+        rm -rf $1
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Make a directory in such a way that it will be removed during rollback.
+# All non-existent directories in the given path are created.  If the
+# directory already exists, do nothing.
+#-----------------------------------------------------------------------
+make_dir()
+{
+    if [ ! -d "$1" ]; then
+        make_dir2 $1 && chmod 755 $1 && chown root:root $1
+    fi
+}
+
+make_dir2()
+{
+    if test ! -d "$1" && make_dir2 `dirname $1`;  then
+        add_to_undolist rmdir $1
+        mkdir $1
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Copy a kernel module and set file pwermissions, group and owner
+#-----------------------------------------------------------------------
+copy_mod()
+{
+    copy_file "$1" "$2" && chmod 644 "$2" && chown root:root "$2"
+}
+
+#-----------------------------------------------------------------------
+# Compare the vermagic string of the pp base driver to the vermagic string
+# of the scsi_mod driver.
+# input: path to PowerPath base driver, in package area.
+# return 0 for matching strings.
+#-----------------------------------------------------------------------
+
+verify_driver_vermagic()
+{
+    local pp_drv_path=$1
+    local ref_driver
+    local ref_mod_version
+    local pp_mod_version
+
+    ref_driver=`lsmod | cut -d' ' -f1 | tail -1`
+    ref_mod_version=`modinfo $ref_driver | \
+        sed -n '/^vermagic:/s/^vermagic:  *//p'`
+    pp_mod_version=`modinfo $pp_drv_path | \
+        sed -n '/^vermagic:/s/^vermagic:  *//p'`
+    ref_mod_version=`echo $ref_mod_version | cut -d' ' -f2-`
+    pp_mod_version=`echo $pp_mod_version | cut -d' ' -f2-`
+    if [ "$pp_mod_version" = "$ref_mod_version" ]
+    then
+        true
+    else
+        false
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Recursively load all modules on the command line, in the order given.
+# If any module fails to load, all previously loaded modules are unloaded
+# and a non-zero status is returned.  After all modules are loaded, emcpioc
+# is unloaded.
+#-----------------------------------------------------------------------
+
+load_all_modules()
+{
+    local mod=`basename "$1" .ko`
+    shift 1
+
+    if [ -z "$mod" ]
+    then
+        if lsmod | grep emcpioc > /dev/null
+        then
+            modprobe -r emcpioc
+        fi
+        return 0
+    fi
+    if modprobe -q $mod
+    then
+        load_all_modules $*
+        if [ $? -ne 0 ]
+        then
+            modprobe -r $mod
+            return 1
+        fi
+    else
+        report_error 'PowerPath could not load module $mod'
+        return 1
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Run "preinstall" checks to make sure the running system is compatible
+# with this package.
+#-----------------------------------------------------------------------
+validate_install_target()
+{
+## Check - Require effective UID of root
+
+    if [ $EUID != 0 ]; then
+        report_error "You must be root to install PowerPath."
+        error_exit
+    fi
+
+## Check - Only install on a 2.6 kernel
+
+    expr `uname -r` : '2\.6' > /dev/null
+    if [ $? -ne 0 ]; then
+        report_error "This PowerPath package does not support this kernel."
+        error_exit
+    fi
+
+## Check vendor
+
+    if expr \( "$EXPECTED_VENDOR" : ".*$VENDOR" \) = 0 >/dev/null; then
+	report_error 'This package requires a $VENDOR_NAME Platform.'
+	error_exit
+    fi
+
+## Check vendor rev.
+
+    check_vendor_rev $EXPECTED_OS_REV
+    if [ $? != 0 ]; then
+        report_error 'This package requires $VENDOR_NAME $VENDOR_OS_NAME.'
+        error_exit
+    fi
+
+## Check hardware platform
+
+    if [ "`uname -m`" != "$EXPECTED_ISA" ]; then
+        report_error \
+            'This package requires the $VENDOR_NAME $EXPECTED_ISA kernel.'
+        error_exit
+    fi
+
+## Check - Make sure no devices are in use.
+
+    if [ "`/sbin/lsmod | grep -w emcp`" != "" ]; then
+        /sbin/powermt save > /dev/null 2>&1
+        /sbin/powermt remove dev=all > /dev/null 2>&1
+        if [ "`powermt display dev=all 2>&1 | grep "not found"`" = "" ]; then
+            report_error \
+                "Unable to remove devices from the PowerPath configuration."
+            report_error \
+                "Please make sure no PowerPath devices are in use and retry."
+            /sbin/powermt config > /dev/null 2>&1
+            /sbin/powermt load > /dev/null 2>&1
+            error_exit
+        fi
+        /sbin/powermt config > /dev/null 2>&1
+        /sbin/powermt load > /dev/null 2>&1
+    fi
+
+## Do we have modules that work with this kernel?
+
+    TAG=`identify_platform \`uname -r\``
+    if [ -z "$TAG" ]; then
+        report_error "This PowerPath package does not support this kernel."
+        report_error '$PPBASE'
+        error_exit
+    fi
+
+## Check driver vermagic
+
+    verify_driver_vermagic $PPBASE/bin/driver/$TAG/emcp.ko
+    if [ $? != 0 ]; then
+        report_error 'PowerPath driver version magic mismatch'
+        error_exit
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Compare the version recorded in the saved powermt.custom file with the
+# version in $1.  If the two versions match, return true.
+#-----------------------------------------------------------------------
+matching_saved_config_version()
+{
+    local saved
+    local Mmp
+    if [ -f $archive_dir/powermt.custom.saved ]; then
+        Mmp=`expr "$1" : '\([0-9]\.[0-9]\.[0-9]\)'`
+        saved=`head -1 $archive_dir/powermt.custom.saved | cut -d: -f3`
+        if [ "$saved" = "$Mmp" ]; then
+            /bin/true
+        else
+            /bin/false
+        fi
+    else
+        /bin/false
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Move files from the PowerPath archive directory to their normal
+# installed locations.
+#-----------------------------------------------------------------------
+restore_configuration_files()
+{
+    for file in /etc/emc/mpaa.lams \
+        /etc/emc/mpaa.excluded \
+        /etc/emcp_registration
+    do
+      if [ -f $archive_dir/`basename $file`.saved ]; then
+          move_file $archive_dir/`basename $file`.saved $file
+      fi
+    done
+
+    if test "$PP_VERSION" || \
+                matching_saved_config_version $NEW_PP_VERSION; then
+        for file in /etc/powermt.custom \
+            /etc/emcp_devicesDB.dat \
+            /etc/emcp_devicesDB.idx
+        do
+          if [ -f $archive_dir/`basename $file`.saved ]; then
+              move_file $archive_dir/`basename $file`.saved $file
+          fi
+        done
+
+        if [ -f $archive_dir/*.FCS ]; then
+            for file in $archive_dir/*.FCS
+              do
+              move_file $file /etc
+            done
+        fi
+    fi
+}
+
+#-----------------------------------------------------------------------
+# tps_managed_classes - Return a true status if third party software
+# is installed to manage the array named in $1.  Otherwise return a
+# false status.
+#-----------------------------------------------------------------------
+tps_managed()
+{
+case "$1" in
+    hitachi)
+        test -d /opt/DynamicLinkManager/bin
+        ;;
+    hpxp)
+        test -d /usr/src/Autopath
+        ;;
+    ess)
+        test -d /opt/IBMsdd/bin
+        ;;
+    hphsx)
+        test -d /etc/CPQswsp/modules
+        ;;
+    *)
+        /bin/false
+        ;;
+esac
+}
+
+#-----------------------------------------------------------------------
+# prev_unmanaged - Return a true status if the array named in $2
+# is marked "unmanaged" in the mpaa.lams file named in $1
+#-----------------------------------------------------------------------
+prev_unmanaged()
+{
+  grep -w $2 $1 2>/dev/null | grep -w unmanaged > /dev/null 2>&1
+}
+
+#-----------------------------------------------------------------------
+# If no mpaa.lams file exists, create one.  Otherwise create a temporary
+# mpaa.lams file, compare it to the existing file and replace the
+# existing file with the temporary one if the two files differ. Also,
+# create an empty mpaa.excluded if one doesn't exist
+#-----------------------------------------------------------------------
+update_lams_files()
+{
+    local lams_file="/etc/emc/mpaa.lams"
+    local lams_excluded_file="/etc/emc/mpaa.excluded"
+    local lams_new
+
+    if [ -f "$lams_file" ]; then
+        lam_ref=$lams_file
+        lams_new=${lams_file}.tmp
+    else
+        lam_ref=/dev/null
+        lams_new=$lams_file
+    fi
+
+    echo  "global:version:$PP_VERSION" > $lams_new
+    for array in symm clariion hpxp hitachi hphsx ess invista
+    do
+        if tps_managed $array || prev_unmanaged $lam_ref $array
+        then
+            echo "unmanaged:$array" >> $lams_new
+        else
+            echo "managed:$array" >> $lams_new
+        fi
+    done
+
+    if [ "$lams_new" = "${lams_file}.tmp" ]; then
+        if /usr/bin/diff -q $lams_file $lams_new >/dev/null 2>&1; then
+            rm -f $lams_new
+        else
+            mv -f $lams_new $lams_file
+        fi
+    else
+        add_to_undolist rm -f $lams_file
+    fi
+
+    if [ ! -f "$lams_excluded_file" ]; then
+        echo  "global:version:$PP_VERSION" > $lams_excluded_file
+        add_to_undolist rm -f $lams_excluded_file
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Add lines to /etc/modprobe.conf.pp to coordinate filter driver, hba
+# driver and emcp loading
+#-----------------------------------------------------------------------
+modprobe_add_pp_lines()
+{
+    local begin_tag='#begin-hba-'
+    local end_tag='#end-hba-'
+    local install_hba
+
+    if test "$1"; then
+       modprobe_hba=' /sbin/modprobe pp_hba;'
+       install_hba=
+       for hba in $*
+       do
+         install_hba="$install_hba /sbin/modprobe $hba;"
+       done
+    fi
+
+    if grep "^${begin_tag}$1" $modprobe_file > /dev/null; then
+        return  # Lines for this hba are already in place
+    else
+        # Lines indented with tab!!
+        cat <<-EOF  >> $modprobe_file
+	${begin_tag}${hba}
+	install emcp /sbin/modprobe pp_hba; /sbin/modprobe emcp --ignore-install
+	install pp_hba ${install_hba}
+	${end_tag}${hba}
+	EOF
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Create dependencies between HBA drivers and power path drivers.
+#-----------------------------------------------------------------------
+create_hba_dependencies()
+{
+    local added_dependency=FALSE
+    local searchDir=/lib/modules/`uname -r`
+    local qlaHbaName
+    local emulexHbaName
+
+    qlaHbaName=`find /proc/scsi -name qla2xxx | sed -e 's/\/proc\/scsi\///'`
+    emulexHbaName=`find /proc/scsi -name lpfc* | sed -e 's/\/proc\/scsi\///'`
+    if [ "$qlaHbaName" ]; then
+        qla_hbas=`lsmod | cut -d' ' -f1 | grep qla | grep  -v qla2xxx`
+        modprobe_add_pp_lines $qla_hbas
+        added_dependency=TRUE
+    fi
+
+    # We no longer support mixed vendor types, so we will not add the
+    # emulex driver if the qla driver exists.
+
+    if [ "$emulexHbaName" != "" -a "$added_dependency" = FALSE ]; then
+            emulexHbaName=lpfcdd
+            modloc=`find $searchDir -name ${emulexHbaName}.ko -print`
+            if [ "$modloc" != "" ]; then
+                modprobe_add_pp_lines $emulexHbaName
+            fi
+    fi
+}
+
+#-----------------------------------------------------------------------
+# Add PowerPath parameters to modprobe.conf.pp file
+#-----------------------------------------------------------------------
+update_driver_parameters()
+{
+    local lams_file="/etc/emc/mpaa.lams"
+    local lams_excluded_file="/etc/emc/mpaa.excluded"
+
+    ## Attach the PP file to modprobe.conf
+
+   grep '^##*BEGINPP' /etc/modprobe.conf >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        save_for_rollback /etc/modprobe.conf
+        cat <<-EOF >> /etc/modprobe.conf  ## Lines indented with tabs!!!
+	###BEGINPP
+	include /etc/modprobe.conf.pp
+	###ENDPP
+	EOF
+    fi
+
+    copy_file $PPBASE/modprobe.conf.pp $modprobe_file
+
+    ## Update the managedclass parameter line
+
+    mng_class=`awk -F: '$1 ~ /^managed$/ {print $2}' $lams_file | \
+               xargs | \
+               sed -e 's/ /,/g' \
+                   -e 's/^/options emcp managedclass=/'`
+
+    grep "options emcp managedclass" $modprobe_file > /dev/null 2>&1
+    if test $? -ne 0 ; then
+        echo "$mng_class" >> $modprobe_file
+    else
+        sed -i "s/^options emcp managedclass=.*/${mng_class}/" \
+            $modprobe_file 
+    fi
+
+    ## Update the excludedvolumes parameter line.
+
+    if [ `wc -l $lams_excluded_file | awk '{print $1}'` -gt 1 ] ; then
+        excluded=`awk -F: '{print $2","}' $lams_excluded_file |\
+                  grep -v version |\
+                  sed '$s/.$//' |\
+                  tr -d '\012'`
+        if [ "$excluded" ] ; then
+            if grep "options emcp excludedvolumes" \
+                     $modprobe_file > /dev/null 2>&1 ; then
+                sed -i "/excludedvolumes/c\
+                    options emcp excludedvolumes=$excluded" $modprobe_file
+            else
+                echo "options emcp excludedvolumes=$excluded" >> $modprobe_file
+            fi
+        fi
+
+    fi
+
+    ## Link hba drivers and powerpath drivers
+
+    create_hba_dependencies
+}
+
+#-----------------------------------------------------------------------
+# update_boot_logic - Tie PowerPath start into system startup logic.
+#-----------------------------------------------------------------------
+update_boot_logic()
+{
+    case "$VENDOR" in
+        suse)
+          MDFILE=/etc/init.d/boot.md
+          grep boot.powerpath $MDFILE >> /dev/null 2>>/dev/null 
+          if [ $? -eq 1 ]; then
+              save_for_rollback $MDFILE
+              string=`grep "# Required-Start:" $MDFILE`
+              sed --in-place -e "s/$string/$string boot.powerpath/" $MDFILE
+              if [ -x /sbin/insserv ]; then
+                  /sbin/insserv
+              fi
+          fi
+        ;;
+        redhat|asianux)
+          ETCFILE=/etc/rc.d/rc.sysinit
+          grep BEGINPP $ETCFILE  >> /dev/null 2>>/dev/null
+          if [ $? -eq 1 ]; then
+              save_for_rollback $ETCFILE
+              sed --in-place -e '/remount,rw \//a \
+                ###BEGINPP\
+                # Configure and initialize PowerPath.\
+                if [ -f /etc/init.d/PowerPath ]; then\
+                   /etc/init.d/PowerPath start\
+                fi\
+                ###ENDPP' $ETCFILE
+          fi
+        ;;
+    esac
+}
+
+#-----------------------------------------------------------------------
+# Delete old modules in all /lib/modules subdirectories, then install
+# the new modules.
+#-----------------------------------------------------------------------
+install_driver_modules()
+{
+for os in /lib/modules/*
+do
+  case $os in
+      /lib/modules/`uname -r`)
+          for modpath in $os/powerpath/*
+          do
+            remove_file $modpath
+          done
+          ;;
+      *)
+          remove_dirtree $os/powerpath
+          ;;
+  esac
+  for modpath in $os/extra/emcp*
+  do
+    remove_file $modpath
+  done
+done
+
+## Install new modules.
+
+MODULE_BASE=/lib/modules/`uname -r`
+
+test -d $MODULE_BASE/powerpath || make_dir $MODULE_BASE/powerpath
+
+for mod in `ls $PPBASE/bin/driver/$TAG`
+do
+  copy_mod $PPBASE/bin/driver/$TAG/$mod $MODULE_BASE/powerpath/$mod
+done
+
+depmod
+}
+
+##-------------------------------- Main ------------------------------##
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin; export PATH
+
+cmd_path=`dirname $0`
+PPBASE=`(cd $cmd_path;pwd)`
+
+test -f $PP_I_DIR/.pp_version && PP_VERSION=`cat $PP_I_DIR/.pp_version`
+test -f $PP_I_DIR/.new_pp_version && \
+                          NEW_PP_VERSION=`cat $PP_I_DIR/.new_pp_version`
+test -f $PP_I_DIR/.os_version && OS_VERSION=`cat $PP_I_DIR/.os_version`
+
+VENDOR=`rpm --showrc | awk '$2 == "_vendor" {print $3}'`
+
+###
+### DO NOT REMOVE THE FOLLOWING LINE
+# SuSE x86_64 specific:
+#
+
+EXPECTED_VENDOR=suse
+VENDOR_NAME=Suse
+VENDOR_OS_NAME=SLES10SP1
+EXPECTED_ISA=x86_64
+EXPECTED_OS_REV=10sp1
+MIN_UPGRADE_REV=5.0.0
+
+check_vendor_rev()
+{
+if [ "`cat /etc/SuSE-release | awk '$1 == "PATCHLEVEL" {print $3}'`" ==  "1" ]
+then
+   sles_version=$EXPECTED_OS_REV
+else
+   sles_version=""
+fi
+test "$1" = "$sles_version"
+}
+
+#-----------------------------------------------------------------------
+# identify_platform -
+# Determine the set of drivers files compatible with the /lib/modules
+# subdirectory passed as an argument and echo the tag for that set of
+# drivers to stdout.
+#-----------------------------------------------------------------------
+
+identify_platform()
+{
+    local platform=
+
+    case "$1" in
+        *-smp) platform=sles${EXPECTED_OS_REV}smp_x8664 ;;
+        *-xen) platform=sles${EXPECTED_OS_REV}xensmp_x8664 ;;
+        *)
+          if [ "$1" = `uname -r` ]
+          then
+              pre_error "This PowerPath package only supports the SuSE SLES x86_64 smp kernel"
+              cleanup_error_exit
+          fi
+          ;;
+    esac
+
+    test "$platform" && echo $platform
+}
+###
+
+init_I18N
+
+rollback_reset
+
+validate_install_target
+
+make_dir /etc/emc/ppme
+
+test "$NEW_PP_VERSION" && restore_configuration_files
+
+update_lams_files
+
+update_driver_parameters
+
+install_driver_modules
+
+## Load new modules.  Emcplib and emcp first, emcpdm and emcpioc last
+## with everything else in between.
+
+load_all_modules `ls $PPBASE/bin/driver/$TAG | \
+                  awk '/^emcplib.ko$/ {order[$1]=1; next}
+                       /^emcp.ko$/    {order[$1]=2; next}
+                       /^emcpdm.ko$/  {order[$1]=4; next}
+                       /^emcpioc.ko$/ {order[$1]=5; next}
+                       /^emcp/        {order[$1]=3; next}
+                       END { for (mod in order) print order[mod],mod;}' |\
+                  sort -n | \
+                  cut -d' ' -f2`
+
+## If error loading modules, roll back everything done to this point and
+## return an error status.
+
+if [ $? -ne 0 ]
+then
+   report_error "Error loading PowerPath kernel modules"
+   rollback
+   rollback_reset
+   depmod
+   error_exit
+fi
+
+## If kernel has changed make sure PowerPath will still start at boot time
+
+if [ "$OS_VERSION" != `uname -r` ]; then
+    update_boot_logic    
+fi
+
+if [ $? -ne 0 ]
+then
+   report_error "Error installing PowerPath"
+   rollback
+   rollback_reset
+   error_exit
+fi
+
+## Update state info in /etc/opt/emcpower
+
+rm -f $PP_I_DIR/.os_version
+uname -r > $PP_I_DIR/.os_version
+rm -f $PP_I_DIR/.prev_pp_version
+if [ -f $PP_I_DIR/.new_pp_version ]
+then
+    test -f $PP_I_DIR/.pp_version && \
+        mv -f $PP_I_DIR/.pp_version $PP_I_DIR/.prev_pp_version
+    mv $PP_I_DIR/.new_pp_version $PP_I_DIR/.pp_version
+fi
