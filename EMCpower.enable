@@ -291,7 +291,6 @@ load_all_modules()
     fi
     if modprobe -q $mod
     then
-		echo >&2 "recurse:$*"
         load_all_modules $*
         if [ $? -ne 0 ]
         then
