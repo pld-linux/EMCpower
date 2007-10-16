@@ -24,7 +24,7 @@
 
 %define	brand sles10sp1
 
-%define		_rel	0.3
+%define		_rel	0.6
 Summary:	EMC PowerPath - multi-path with fail-over and load-sharing over SCSI
 Summary(pl.UTF-8):	EMC PowerPath - multi-path z fail-over i dzieleniem obciążenia po SCSI
 Name:		EMCpower
@@ -44,7 +44,9 @@ Source1:	%{name}.LINUX-%{version}-022.%{brand}.x86_64.rpm
 NoSource:	1
 %endif
 Source2:	PowerPath.init
+Source3:	%{name}.enable
 Requires(post,preun):	/sbin/chkconfig
+Requires:	diffutils
 Obsoletes:	EMCpower.LINUX
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -139,6 +141,7 @@ cat PowerPath.lang >> EMCpower.lang
 install -d $RPM_BUILD_ROOT/etc/opt/emcpower/.tmp
 mv $RPM_BUILD_ROOT{%{_sbindir},/etc/opt/emcpower}/emcpmgr
 mv $RPM_BUILD_ROOT{%{_sbindir},/etc/opt/emcpower}/powercf
+install %{SOURCE3} $RPM_BUILD_ROOT/etc/opt/emcpower/enable
 touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_global_lock
 touch $RPM_BUILD_ROOT/etc/opt/emcpower/.__emcp_db_lock
 
@@ -215,6 +218,8 @@ fi
 /etc/emc/.drivers_*
 %ghost /etc/emc/mpaa.excluded
 %ghost /etc/emc/mpaa.lams
+%attr(754,root,root) /etc/opt/emcpower/enable
+%dir /etc/opt/emcpower/.tmp
 %attr(754,root,root) /etc/rc.d/init.d/PowerPath
 %attr(755,root,root) %{_sbindir}/emcpadm
 %attr(755,root,root) %{_sbindir}/emcpdiscover
